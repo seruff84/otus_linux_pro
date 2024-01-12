@@ -31,7 +31,6 @@ source "virtualbox-iso" "ubuntu2204-vb" {
   ssh_port                = "22"
   ssh_timeout             = "60m"
   ssh_pty                 = true
-  #vm_name                 = "ubuntu-vb"
   vm_name                 = "${var.image_name}"
   cd_label                = "cidata"
   output_directory        = "builds"

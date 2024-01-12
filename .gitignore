@@ -1,0 +1,4 @@
+01/.vagrant
+01/packer/builds/
+01/packer/*.box
+01/simple/

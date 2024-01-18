@@ -1,4 +1,5 @@
-01/.vagrant
+*/.vagrant
 01/packer/builds/
 01/packer/*.box
 01/simple/
+.vscode

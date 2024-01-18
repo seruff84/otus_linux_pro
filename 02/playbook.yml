@@ -1,0 +1,50 @@
+---
+- name: NGINX | Install and configure NGINX
+  hosts: web
+  become: true
+
+  vars:
+    nginx_listen_port: 8080
+
+  tasks:
+    - name: NGINX | install NGINX
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: true
+      notify:
+        - Restart nginx
+      tags:
+        - nginx-package
+
+    - name: NGINX | Create NGINX config file from template
+      ansible.builtin.template:
+        src: templates/default.j2
+        dest: /etc/nginx/sites-available/default
+        mode: '0644'
+      notify:
+        - Reload nginx
+      tags:
+        - nginx-configurations
+
+    - name: NGINX | Create NGINX config simlink file
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/default
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+      notify:
+        - Reload nginx
+      tags:
+        - nginx-configurations
+
+  handlers:
+    - name: Restart nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+        enabled: true
+
+    - name: Reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded

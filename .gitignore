@@ -1,5 +1,7 @@
 */.vagrant
-01/packer/builds/
-01/packer/*.box
-01/simple/
+*/builds/
+*/*.box
+*/*.vdi
 .vscode
+01/simple/
+

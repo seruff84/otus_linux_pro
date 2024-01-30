@@ -1,0 +1,170 @@
+Script started on Mon 29 Jan 2024 09:46:36 AM UTC
+]0;root@lvm:/home/vagrant[?1034h[root@lvm vagrant]# pvcreate /dev/sdb
+File descriptor 3 (/home/vagrant/01.tm) leaked on pvcreate invocation. Parent PID 3806: bash
+  Physical volume "/dev/sdb" successfully created.
+]0;root@lvm:/home/vagrant[root@lvm vagrant]# vgcreate vg_root /dev/sdb
+File descriptor 3 (/home/vagrant/01.tm) leaked on vgcreate invocation. Parent PID 3806: bash
+  Volume group "vg_root" successfully created
+]0;root@lvm:/home/vagrant[root@lvm vagrant]# lvcreate -n lv_root -l +100%FREE /dev/vg_root
+File descriptor 3 (/home/vagrant/01.tm) leaked on lvcreate invocation. Parent PID 3806: bash
+  Logical volume "lv_root" created.
+]0;root@lvm:/home/vagrant[root@lvm vagrant]# mkfs.xfs /dev/vg_root/lv_root
+meta-data=/dev/vg_root/lv_root   isize=512    agcount=4, agsize=655104 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=0, sparse=0
+data     =                       bsize=4096   blocks=2620416, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
+log      =internal log           bsize=4096   blocks=2560, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+]0;root@lvm:/home/vagrant[root@lvm vagrant]# mount /dev/vg_root/lv_root /mnt
+]0;root@lvm:/home/vagrant[root@lvm vagrant]# xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt
+xfsdump: using file dump (drive_simple) strategy
+xfsdump: version 3.1.7 (dump format 3.0)
+xfsrestore: using file dump (drive_simple) strategy
+xfsrestore: version 3.1.7 (dump format 3.0)
+xfsdump: level 0 dump of lvm:/
+xfsdump: dump date: Mon Jan 29 09:47:11 2024
+xfsdump: session id: 154e4d06-763d-43c4-9d85-a5aa444e1753
+xfsdump: session label: ""
+xfsrestore: searching media for dump
+xfsdump: ino map phase 1: constructing initial dump list
+xfsdump: ino map phase 2: skipping (no pruning necessary)
+xfsdump: ino map phase 3: skipping (only one dump stream)
+xfsdump: ino map construction complete
+xfsdump: estimated dump size: 892407424 bytes
+xfsdump: creating dump session media file 0 (media 0, file 0)
+xfsdump: dumping ino map
+xfsdump: dumping directories
+xfsrestore: examining media file 0
+xfsrestore: dump description: 
+xfsrestore: hostname: lvm
+xfsrestore: mount point: /
+xfsrestore: volume: /dev/mapper/VolGroup00-LogVol00
+xfsrestore: session time: Mon Jan 29 09:47:11 2024
+xfsrestore: level: 0
+xfsrestore: session label: ""
+xfsrestore: media label: ""
+xfsrestore: file system id: b60e9498-0baa-4d9f-90aa-069048217fee
+xfsrestore: session id: 154e4d06-763d-43c4-9d85-a5aa444e1753
+xfsrestore: media id: f2c368d0-768f-4fcd-954c-a8c07ad45fc8
+xfsrestore: searching media for directory dump
+xfsrestore: reading directories
+xfsdump: dumping non-directory files
+xfsrestore: 2698 directories and 23614 entries processed
+xfsrestore: directory post-processing
+xfsrestore: restoring non-directory files
+xfsdump: ending media file
+xfsdump: media file size 869212488 bytes
+xfsdump: dump size (non-dir files) : 856051800 bytes
+xfsdump: dump complete: 7 seconds elapsed
+xfsdump: Dump Status: SUCCESS
+xfsrestore: restore complete: 7 seconds elapsed
+xfsrestore: Restore Status: SUCCESS
+]0;root@lvm:/home/vagrant[root@lvm vagrant]# for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done
+]0;root@lvm:/home/vagrant[root@lvm vagrant]# chroot /mnt/
+]0;root@lvm:/[?1034h[root@lvm /]# grub2-mkconfig -o /boot/grub2/grub.cfg
+Generating grub configuration file ...
+File descriptor 3 (/home/vagrant/01.tm) leaked on vgs invocation. Parent PID 3937: /usr/sbin/grub2-probe
+File descriptor 3 (/home/vagrant/01.tm) leaked on vgs invocation. Parent PID 3937: /usr/sbin/grub2-probe
+Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
+Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
+File descriptor 3 (/home/vagrant/01.tm) leaked on vgs invocation. Parent PID 4100: /usr/sbin/grub2-probe
+File descriptor 3 (/home/vagrant/01.tm) leaked on vgs invocation. Parent PID 4100: /usr/sbin/grub2-probe
+done
+]0;root@lvm:/[root@lvm /]# cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g;s/.img//g"` --force; done
+Executing: /sbin/dracut -v initramfs-3.10.0-862.2.3.el7.x86_64.img 3.10.0-862.2.3.el7.x86_64 --force
+dracut module 'busybox' will not be installed, because command 'busybox' could not be found!
+dracut module 'crypt' will not be installed, because command 'cryptsetup' could not be found!
+dracut module 'dmraid' will not be installed, because command 'dmraid' could not be found!
+dracut module 'dmsquash-live-ntfs' will not be installed, because command 'ntfs-3g' could not be found!
+dracut module 'multipath' will not be installed, because command 'multipath' could not be found!
+dracut module 'busybox' will not be installed, because command 'busybox' could not be found!
+dracut module 'crypt' will not be installed, because command 'cryptsetup' could not be found!
+dracut module 'dmraid' will not be installed, because command 'dmraid' could not be found!
+dracut module 'dmsquash-live-ntfs' will not be installed, because command 'ntfs-3g' could not be found!
+dracut module 'multipath' will not be installed, because command 'multipath' could not be found!
+*** Including module: bash ***
+*** Including module: nss-softokn ***
+*** Including module: i18n ***
+*** Including module: drm ***
+*** Including module: plymouth ***
+*** Including module: dm ***
+Skipping udev rule: 64-device-mapper.rules
+Skipping udev rule: 60-persistent-storage-dm.rules
+Skipping udev rule: 55-dm.rules
+*** Including module: kernel-modules ***
+Omitting driver floppy
+*** Including module: lvm ***
+Skipping udev rule: 64-device-mapper.rules
+Skipping udev rule: 56-lvm.rules
+Skipping udev rule: 60-persistent-storage-lvm.rules
+*** Including module: qemu ***
+*** Including module: resume ***
+*** Including module: rootfs-block ***
+*** Including module: terminfo ***
+*** Including module: udev-rules ***
+Skipping udev rule: 40-redhat-cpu-hotplug.rules
+Skipping udev rule: 91-permissions.rules
+*** Including module: biosdevname ***
+*** Including module: systemd ***
+*** Including module: usrmount ***
+*** Including module: base ***
+*** Including module: fs-lib ***
+*** Including module: shutdown ***
+*** Including modules done ***
+*** Installing kernel module dependencies and firmware ***
+*** Installing kernel module dependencies and firmware done ***
+*** Resolving executable dependencies ***
+*** Resolving executable dependencies done***
+*** Hardlinking files ***
+*** Hardlinking files done ***
+*** Stripping files ***
+*** Stripping files done ***
+*** Generating early-microcode cpio image contents ***
+*** No early-microcode cpio image needed ***
+*** Store current command line parameters ***
+*** Creating image file ***
+*** Creating image file done ***
+*** Creating initramfs image file '/boot/initramfs-3.10.0-862.2.3.el7.x86_64.img' done ***
+]0;root@lvm:/boot[root@lvm boot]# vi /boot/grub2/grub.cfg 
+[?1049h[?1h=[1;25r[?12;25h[?12l[?25h[27m[m[H[2J[?25l[25;1H"/boot/grub2/grub.cfg" 127L, 3658C[1;1H#
+# DO NOT EDIT THIS FILE
+#
+# It is automatically generated by grub2-mkconfig using templates
+# from /etc/grub.d and settings from /etc/default/grub
+#
+
+### BEGIN /etc/grub.d/00_header ###
+set pager=1
+
+if [ -s $prefix/grubenv ]; then
+  load_env
+fi
+if [ "${next_entry}" ] ; then
+   set default="${next_entry}"
+   set next_entry=
+   save_env next_entry
+   set boot_once=true
+else
+   set default="${saved_entry}"
+fi
+
+if [ x"${feature_menuentry_id}" = xy ]; then
+  menuentry_id_option="--id"[1;1H[?12l[?25h[?25l[25;1H[K[25;1H/[?12l[?25hVol[?25l[27m[m[H[2J[1;9Hload_video[2;9Hset gfxpayload=keep[3;9Hinsmod gzio[4;9Hinsmod part_msdos[5;9Hinsmod xfs[6;9Hset root='hd0,msdos2'[7;9Hif [ x$feature_platform_search_hint = xy ]; then[8;11Hsearch --no-floppy --fs-uuid --set=root --hint-bios=hd0,msdos2 --hint-efi=hd0,msdos2 --hint-baremetal=ahci0,msdos2  570897ca-e759-4c81-90cf-389da6eee4cc[9;9Helse[10;11Hsearch --no-floppy --fs-uuid --set=root 570897ca-e759-4c81-90cf-389da6eee4cc[11;9Hfi[12;9Hlinux16 /vmlinuz-3.10.0-862.2.3.el7.x86_64 root=/dev/mapper/vg_root-lv_root ro no_timer_check console=tty0 console=ttyS0,115200n8 net.ifnames=0 biosdevname=0 elevator=noop crashkernel=auto  [13;1Hrd.lvm.lv=VolGroup00/LogVol00 rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[14;9Hinitrd16 /initramfs-3.10.0-862.2.3.el7.x86_64.img
+}
+if [ "x$default" = 'CentOS Linux (3.10.0-862.2.3.el7.x86_64) 7 (Core)' ]; then default='Advanced options for CentOS Linux>CentOS Linux (3.10.0-862.2.3.el7.x86_64) 7 (Core)'; fi;
+### END /etc/grub.d/10_linux ###
+
+### BEGIN /etc/grub.d/20_linux_xen ###
+### END /etc/grub.d/20_linux_xen ###
+
+### BEGIN /etc/grub.d/20_ppc_terminfo ###
+### END /etc/grub.d/20_ppc_terminfo ###[13;11H[?12l[?25h[14;57H[13;11HVolGroup00/LogVol00 lGroup00/LogVol00[?25l[25;1H[1m-- INSERT --[13;30H[?12l[?25h[?25l[m rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;29H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;28H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;27H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;26H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;25H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;24H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;23H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;22H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;21H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;20H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;19H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;18H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;17H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;16H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;15H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;14H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;13H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;12H[?12l[?25h[?25l rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet [13;11H[?12l[?25h[?25lv rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;12H[?12l[?25h[?25lg rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;13H[?12l[?25h[?25l_ rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;14H[?12l[?25h[?25lr rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;15H[?12l[?25h[?25lo rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;16H[?12l[?25h[?25lo rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;17H[?12l[?25h[?25lt rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;18H[?12l[?25h[?25l/ rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;19H[?12l[?25h[?25ll rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;20H[?12l[?25h[?25lv rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;21H[?12l[?25h[?25l_ rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;22H[?12l[?25h[?25lr rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;23H[?12l[?25h[?25lo rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;24H[?12l[?25h[?25lo rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;25H[?12l[?25h[?25lt rd.lvm.lv=VolGroup00/LogVol01 rhgb quiet[13;26H[?12l[?25h[25;1H[K[13;25H[?25l[?12l[?25h[?25l[25;1H:[?12l[?25hwq[?25l"grub2/grub.cfg" 127L, 3654C written
+[?1l>[?12l[?25h[?1049l]0;root@lvm:/boot[root@lvm boot]# exit
+exit
+]0;root@lvm:/home/vagrant[root@lvm vagrant]# exit
+exit
+
+Script done on Mon 29 Jan 2024 09:48:53 AM UTC

@@ -35,3 +35,61 @@ Vagrantfile - Сценарий развертывания ифрострукту
 Так как в этой ос по умочанюи в ядре отключена поддержка UDP для NFS было собрано кастомное ядро.
 Подготовка инфораструктуры выполнена с помощью ansible а не bash скриптов как в методичке.
 
+## Настройка  kerberos
+
+ На сервере 
+kadmin -p defaultuser/admin -w pAssWord -q "addprinc -randkey host/nfss.lab.local"
+kadmin -p defaultuser/admin -w pAssWord -q "addprinc -randkey host/nfsc.lab.local"
+kadmin -p defaultuser/admin -w pAssWord -q "addprinc -randkey nfs/nfss.lab.local"
+kadmin -p defaultuser/admin -w pAssWord -q "addprinc -randkey nfs/nfsc.lab.local"
+
+На сервере
+kadmin -p defaultuser/admin -w pAssWord -q "ktadd -randkey host/nfss.lab.local"
+kadmin -p defaultuser/admin -w pAssWord -q "ktadd -randkey nfs/nfss.lab.local"
+
+на клиенте
+kadmin -p defaultuser/admin -w pAssWord -q "ktadd -randkey host/nfsc.lab.local"
+kadmin -p defaultuser/admin -w pAssWord -q "ktadd -randkey nfs/nfsc.lab.local"
+
+в `/etc/nfs.conf`
+ manage-gids=y 
+ vers3=y
+ vers4=y
+ vers4.0=y
+ vers4.1=y
+ vers4.2=y
+
+ в `/etc/idmapd.conf`
+
+
+
+```
+systemctl status rpc-gssd[General]
+
+Verbosity = 0
+# set your own domain here, if it differs from FQDN minus hostname
+# Domain = localdomain
+Domain = lab.local
+Local-Realms = LAB.LOCAL
+[Mapping]
+
+Nobody-User = nobody
+Nobody-Group = nogroup
+
+[Translation]
+Method = nsswitch,static
+GSS-Methods = nsswitch,static
+```
+В  `/etc/exports` :
+
+```
+/srv/share  192.168.50.11/32(rw,sync,insecure,no_root_squash,no_subtree_check,sec=krb5:krb5i:krb5p)
+```
+на клиенте 
+
+`mount -vvv -t nfs4 -o sec=krb5 nfss.lab.local:/srv/share /nfs`
+
+в результате ошибка:
+
+mount.nfs4: mount(2): Operation not permitted
+mount.nfs4: Operation not permitted

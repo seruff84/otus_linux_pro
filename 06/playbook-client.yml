@@ -62,6 +62,8 @@
         port: '{{ item }}'
       loop:
         - 22
+        - 88
+        - 750
       tags:
         - ufw
 

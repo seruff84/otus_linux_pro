@@ -1,0 +1,112 @@
+---
+
+- name: Install and configure nfs client
+  hosts: nfsc
+  become: true
+
+  vars:
+    realm_name: LAB.lOCAL
+    kdc: nfss
+    kadmin_user: defaultuser
+    kadmin_pass: pAssWord
+
+  tasks:
+    - name: NFS | install nfs client
+      ansible.builtin.apt:
+        name: '{{ item }}'
+        state: present
+        update_cache: true
+      loop:
+        - nfs-common
+        - krb5-user
+        - unzip
+
+    - name: Download Kernel files
+      ansible.builtin.get_url:
+        url: https://github.com/seruff84/otus_linux_pro/releases/download/5.1.15/linux-5.15-nfs_udp.zip
+        dest: /tmp/linux-5.15-nfs_udp.zip
+      tags: kernel
+      register: result
+
+    - name: Unarchive a file that is already on the remote machine
+      ansible.builtin.unarchive:
+        src: '/tmp/linux-5.15-nfs_udp.zip'
+        dest: '/tmp/'
+        remote_src: true
+      tags: kernel
+
+
+    - name: Install a .deb package from local source
+      ansible.builtin.shell: env DEBIAN_FRONTEND=noninteractive apt-get install -y /tmp/*.deb --allow-downgrades
+      environment:
+        DEBIAN_FRONTEND: noninteractiv
+      tags: kernel
+      when: result.changed
+      notify: Reboot the machine
+
+    - name: Kernel | edit grub config
+      ansible.builtin.lineinfile:
+        path: '/etc/default/grub'
+        regexp: '^GRUB_DEFAULT=.*'
+        line: 'GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 5.15.0-92-generic"'
+      tags: kernel
+      notify: Reboot the machine
+
+    - name: Kernel | grub-update
+      ansible.builtin.command: update-grub
+      tags: kernel
+
+    - name: UFW | allow ports
+      community.general.ufw:
+        rule: allow
+        port: '{{ item }}'
+      loop:
+        - 22
+      tags:
+        - ufw
+
+    - name: UFW | enable UFW
+      community.general.ufw:
+        state: enabled
+      tags:
+        - ufw
+
+    - name: NFS | Update exports
+      ansible.builtin.lineinfile:
+        dest: '/etc/fstab'
+        regexp: '^192.168.50.10:/srv/share/'
+        line: "192.168.50.10:/srv/share/ /mnt nfs vers=3,proto=udp,noauto,x-systemd.automount 0 0"
+      notify: Restart remote-fs
+
+
+    - name: Make sure we have the entry for hostname in /etc/hosts
+      ansible.builtin.lineinfile:
+        state: present
+        dest: /etc/hosts
+        regexp: '.*192.168.50.11\s*{{ ansible_hostname }}\s*{{ ansible_hostname }}.{{ realm_name|lower() }}'
+        line: '192.168.50.11 {{ ansible_hostname }} {{ ansible_hostname }}.{{ realm_name|lower() }}'
+        unsafe_writes: true
+
+    - name: Make sure we have the entry for hostname in /etc/hosts
+      ansible.builtin.lineinfile:
+        state: present
+        dest: /etc/hosts
+        regexp: '.*192.168.50.10\s*nfss\s*nfss.{{ realm_name|lower() }}'
+        line: '192.168.50.10 nfss nfss.{{ realm_name|lower() }}'
+        unsafe_writes: true
+
+    - name: Copy client configuration file
+      ansible.builtin.template:
+        src: krb5.conf.j2
+        dest: /etc/krb5.conf
+
+  handlers:
+    - name: Restart remote-fs
+      ansible.builtin.systemd_service:
+        name: remote-fs.target
+        state: restarted
+        enabled: true
+        daemon-reload: true
+
+    - name: Reboot the machine
+      ansible.builtin.reboot:

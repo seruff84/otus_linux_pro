@@ -3,6 +3,8 @@
 */builds/
 */*.box
 */*.vdi
+*/*.deb
+*/*.zip
 .vscode
 01/simple/
 04/asterisk

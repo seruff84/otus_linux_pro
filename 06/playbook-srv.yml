@@ -1,0 +1,215 @@
+---
+- name:  Install and configure nfs server
+  hosts: nfss
+  become: true
+
+  vars:
+
+    kdc_port: 88
+    realm_name: LAB.lOCAL
+    kdc: nfss
+    master_db_pass: mstRpAssWord
+    kadmin_user: defaultuser
+    kadmin_pass: pAssWord
+    kdc_conf_path: /etc/krb5kdc/kdc.conf
+    kadm5_acl_path: /etc/krb5kdc/kadm5.acl
+    krb_service:
+    - krb5-kdc
+    - krb5-admin-server
+
+  tasks:
+    - name: Install pakages
+      ansible.builtin.apt:
+        name: '{{ item }}'
+        state: present
+        update_cache: true
+      loop:
+        - nfs-kernel-server
+        - krb5-kdc
+        - krb5-admin-server
+        - unzip
+
+    - name: Download Kernel files
+      ansible.builtin.get_url:
+        url: https://github.com/seruff84/otus_linux_pro/releases/download/5.1.15/linux-5.15-nfs_udp.zip
+        dest: /tmp/linux-5.15-nfs_udp.zip
+      tags: kernel
+      register: result
+
+    - name: Unarchive a file that is already on the remote machine
+      ansible.builtin.unarchive:
+        src: '/tmp/linux-5.15-nfs_udp.zip'
+        dest: '/tmp/'
+        remote_src: true
+      tags: kernel
+
+
+    # - name: Find /var/log files equal or greater than 10 megabytes ending with .old or .log.gz
+    #   ansible.builtin.find:
+    #     paths: /tmp/
+    #     patterns: 'linux-*.deb'
+    #   register: result
+    #   tags: kernel
+
+    # - name: Install a .deb package from local source
+    #   ansible.builtin.apt:
+    #     deb: "{{ item.path }}"
+    #   loop: "{{ result.files }}"
+    #   loop_control:
+    #     label: "{{ item.path | basename }}"
+    #   tags: kernel
+    # register: result
+
+    - name: Install a .deb package from local source
+      ansible.builtin.shell: env DEBIAN_FRONTEND=noninteractive apt-get install -y /tmp/*.deb --allow-downgrades
+      environment:
+        DEBIAN_FRONTEND: noninteractiv
+      tags: kernel
+      when: result.changed
+      notify: Reboot the machine
+
+    - name: Kernel | edit grub config
+      ansible.builtin.lineinfile:
+        path: '/etc/default/grub'
+        regexp: '^GRUB_DEFAULT=.*'
+        line: 'GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 5.15.0-92-generic"'
+      tags: kernel
+      notify: Reboot the machine
+
+    - name: Kernel | grub-update
+      ansible.builtin.command: update-grub
+      tags: kernel
+
+    # - name: Reboot the machine
+    #   ansible.builtin.reboot:
+    #   when: result.changed
+    #   tags: kernel
+
+    - name: UFW | allow ports
+      community.general.ufw:
+        rule: allow
+        port: '{{ item }}'
+      loop:
+        - 22
+        - 88
+        - 111
+        - 2049
+        - 20048
+      tags:
+        - ufw
+
+    - name: UFW | enable UFW
+      community.general.ufw:
+        state: enabled
+      tags:
+        - ufw
+    - name: NFS | Recursively create a directory
+      ansible.builtin.file:
+        path: /srv/share/upload
+        state: directory
+        recurse: true
+
+    - name: NFS | Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: /srv/share/
+        state: directory
+        recurse: true
+        owner: nobody
+        group: nogroup
+        mode: '0777'
+
+    - name: NFS | Update exports
+      ansible.builtin.lineinfile:
+        dest: '/etc/exports'
+        regexp: '^/srv/share'
+        line: "/srv/share  192.168.50.11/32(rw,sync,root_squash,no_subtree_check)"
+      notify: Re-export the share
+
+    - name: NFS |  nfs.conf
+      ansible.builtin.lineinfile:
+        path: '/etc/nfs.conf'
+        insertafter: '[{{item.chapter}}]'
+        regexp: '{{item.name}}='
+        line: "{{item.name}}={{item.value}}"
+      loop:
+        - {name: 'manage-gids', value: 'n', chapter: 'mountd'}
+        - {name: 'udp', value: 'y', chapter: 'nfsd'}
+      notify: Restart nfs
+
+    - name: NFS | nfs.conf port
+      ansible.builtin.lineinfile:
+        path: '/etc/nfs.conf'
+        insertbefore: '^manage-gids=n.*'
+        line: "port=20048"
+      notify: Restart nfs
+###########################
+
+    - name: Make sure we have the entry for hostname in /etc/hosts
+      ansible.builtin.lineinfile:
+        state: present
+        dest: /etc/hosts
+        regexp: '.*192.168.50.10\s*{{ ansible_hostname }}\s*{{ ansible_hostname }}.{{ realm_name|lower() }}'
+        line: '192.168.50.10 {{ ansible_hostname }} {{ ansible_hostname }}.{{ realm_name|lower() }}'
+        unsafe_writes: true
+
+    - name: Make sure we have the entry for hostname in /etc/hosts
+      ansible.builtin.lineinfile:
+        state: present
+        dest: /etc/hosts
+        regexp: '.*192.168.50.11\s*nfsc\s*nfsc.{{ realm_name|lower() }}'
+        line: '192.168.50.11 nfsc nfsc.{{ realm_name|lower() }}'
+        unsafe_writes: true
+
+    - name: Copy KDC configuration file
+      ansible.builtin.template:
+        src: templates/kdc.conf.j2
+        dest: "{{ kdc_conf_path }}"
+      notify:
+      - Restart kerberos
+      register: result
+
+    - name: Copy KDC ACL configuration file
+      ansible.builtin.template:
+        src: kadm5.acl.j2
+        dest: "{{ kadm5_acl_path }}"
+      notify:
+      - Restart kerberos
+
+    - name: Copy client configuration file
+      ansible.builtin.template:
+        src: krb5.conf.j2
+        dest: /etc/krb5.conf
+
+    - name: Create initial Kerberos database
+      ansible.builtin.shell: kdb5_util -P {{ master_db_pass }} create -s
+      when: result.changed
+
+    - name: Start Kerberos services
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      with_items: "{{ krb_service }}"
+      
+    - name: Create an admin for administering Kerberos server
+      ansible.builtin.shell: kadmin.local -q "addprinc -pw {{ kadmin_pass }} {{ kadmin_user }}/admin"
+
+#############################
+  handlers:
+    - name: Re-export the share
+      ansible.builtin.command: exportfs -r
+
+    - name: Restart nfs
+      ansible.builtin.systemd_service:
+        name: nfs-kernel-server.service
+        state: restarted
+        enabled: true
+
+    - name: Restart kerberos
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: restarted
+      with_items: "{{ krb_service }}"
+
+    - name: Reboot the machine
+      ansible.builtin.reboot:

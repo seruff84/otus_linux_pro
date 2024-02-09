@@ -38,19 +38,19 @@ Vagrantfile - Сценарий развертывания ифрострукту
 ## Настройка  kerberos
 
  На сервере 
+```
 kadmin -p defaultuser/admin -w pAssWord -q "addprinc -randkey host/nfss.lab.local"
 kadmin -p defaultuser/admin -w pAssWord -q "addprinc -randkey host/nfsc.lab.local"
 kadmin -p defaultuser/admin -w pAssWord -q "addprinc -randkey nfs/nfss.lab.local"
 kadmin -p defaultuser/admin -w pAssWord -q "addprinc -randkey nfs/nfsc.lab.local"
-
-На сервере
 kadmin -p defaultuser/admin -w pAssWord -q "ktadd -randkey host/nfss.lab.local"
 kadmin -p defaultuser/admin -w pAssWord -q "ktadd -randkey nfs/nfss.lab.local"
-
+```
 на клиенте
+```
 kadmin -p defaultuser/admin -w pAssWord -q "ktadd -randkey host/nfsc.lab.local"
 kadmin -p defaultuser/admin -w pAssWord -q "ktadd -randkey nfs/nfsc.lab.local"
-
+```
 в `/etc/nfs.conf`
  manage-gids=y 
  vers3=y

@@ -1,0 +1,94 @@
+---
+- name: Lab9| Systemd
+  hosts: lab09
+  become: true
+
+  vars:
+    files:
+      - /etc/sysconfig/watchlog
+      - /var/log/watchlog.log
+      - /opt/watchlog.sh
+      - /etc/systemd/system/watchlog.service
+      - /etc/systemd/system/watchlog.timer
+    pkg:
+      - spawn-fcgi
+      - php
+      - php-cli
+      - mod_fcgid
+      - httpd
+  tasks:
+    - name: Yum | Find all yum repo
+      ansible.builtin.find:
+        paths: /etc/yum.repos.d/
+        patterns: 'CentOS-*'
+      register: result
+      tags: yum
+
+    - name: Yum | edit yum rep; disable mirrorlist
+      ansible.builtin.lineinfile:
+        path: '{{ item.path }}'
+        regexp: '^(mirrorlist.*)'
+        line: '#\1'
+        backrefs: true
+      loop: "{{ result.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      tags: yum
+
+    - name: Yum | edit yum repo ; enable baseurl
+      ansible.builtin.lineinfile:
+        path: '{{ item.path }}'
+        regexp: '^#baseurl=http://mirror.centos.org(.*)'
+        line: 'baseurl=http://vault.centos.org\1'
+        backrefs: true
+      loop: "{{ result.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      tags: yum
+
+    - name: Copy Files
+      ansible.builtin.copy:
+        src: "Files/{{ item | basename }}"
+        dest: "{{ item }}"
+        mode: '0644'
+      loop:
+        "{{ files }}"
+      notify: New service
+
+    - name: Give execute permissions to an existing file
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: 'u+x'
+      loop:
+        "{{ files }}"
+      when: "'.sh' in item"
+      notify: New service
+
+    - name: Force all notified handlers to run at this point, not waiting for normal sync points
+      ansible.builtin.meta: flush_handlers
+
+    - name: Yum | Install epel repo
+      ansible.builtin.yum:
+        state: present
+        name: epel-release
+      tags: yum
+
+    - name: Yum | Install pkg
+      ansible.builtin.yum:
+        name: "{{ pkg }}"
+        state: present
+      tags: yum
+
+
+  handlers:
+    - name: Daemon reload
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      listen: New service
+
+    - name: Restart watchlog
+      ansible.builtin.systemd_service:
+        name: watchlog.timer
+        state: restarted
+        enabled: true
+      listen: New service

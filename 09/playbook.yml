@@ -7,9 +7,23 @@
     files:
       - /etc/sysconfig/watchlog
       - /var/log/watchlog.log
-      - /opt/watchlog.sh
       - /etc/systemd/system/watchlog.service
       - /etc/systemd/system/watchlog.timer
+      - /etc/systemd/system/spawn-fcgi.service
+
+    httpd_files:
+      - /usr/lib/systemd/system/httpd.service
+      - /etc/sysconfig/httpd-first
+      - /etc/sysconfig/httpd-second
+
+    httpd_conf:
+      - conffile: first.conf
+        pidfile: /var/run/httpd-first.pid
+        httpdport: 80
+      - conffile: second.conf
+        pidfile: /var/run/httpd-second.pid
+        httpdport: 8080
+
     pkg:
       - spawn-fcgi
       - php
@@ -53,20 +67,22 @@
         mode: '0644'
       loop:
         "{{ files }}"
-      notify: New service
+      notify: Restart watchlog
 
-    - name: Give execute permissions to an existing file
-      ansible.builtin.file:
-        path: "{{ item }}"
-        mode: 'u+x'
-      loop:
-        "{{ files }}"
-      when: "'.sh' in item"
-      notify: New service
+    - name: Copy /opt/watchlog.sh
+      ansible.builtin.copy:
+        src: "Files/watchlog.sh"
+        dest: "/opt/watchlog.sh"
+        mode: '0744'
+      notify: Restart watchlog
 
-    - name: Force all notified handlers to run at this point, not waiting for normal sync points
-      ansible.builtin.meta: flush_handlers
-
+    - name: Start watchlog
+      ansible.builtin.systemd_service:
+        name: watchlog.timer
+        daemon_reload: true
+        state: started
+        enabled: true
+###################################
     - name: Yum | Install epel repo
       ansible.builtin.yum:
         state: present
@@ -79,16 +95,68 @@
         state: present
       tags: yum
 
+    - name: Spawn-fcgi | edit /etc/sysconfig/spawn-fcgi
+      ansible.builtin.lineinfile:
+        path: '/etc/sysconfig/spawn-fcgi'
+        regexp: '^#({{ item.name }}=).*'
+        line: '\1{{ item.value }}'
+        backrefs: true
+      loop:
+        - {name: 'SOCKET', value: '/var/run/php-fcgi.sock'}
+        - {name: 'OPTIONS', value: '"-u apache -g apache -s $SOCKET -S -M 0600 -C 32 -F 1 -- /usr/bin/php-cgi"'}
+      tags: spawn-fcgi
+      notify: Restart spawn-fcgi
+
+    - name: Start  spawn-fcgi
+      ansible.builtin.systemd_service:
+        name: spawn-fcgi.service
+        daemon_reload: true
+        state: started
+        enabled: true
+###################################
+
+    - name: Copy Files
+      ansible.builtin.copy:
+        src: "Files/{{ item | basename }}"
+        dest: "{{ item }}"
+        mode: '0644'
+      loop:
+        "{{ httpd_files }}"
+      notify: Restart httpd
+
+    - name: Template a file to htttpd confs
+      ansible.builtin.template:
+        src: templates/httpd.conf.j2
+        dest: "/etc/httpd/conf/{{ item.conffile }}"
+        mode: '0644'
+      loop: "{{ httpd_conf }}"
+
+    - name: Start httpd
+      ansible.builtin.systemd_service:
+        name: '{{ item }}'
+        daemon_reload: true
+        state: started
+        enabled: true
+      loop:
+        - httpd@first
+        - httpd@second
 
   handlers:
-    - name: Daemon reload
-      ansible.builtin.systemd_service:
-        daemon_reload: true
-      listen: New service
 
     - name: Restart watchlog
       ansible.builtin.systemd_service:
         name: watchlog.timer
         state: restarted
-        enabled: true
-      listen: New service
+
+    - name: Restart httpd
+      ansible.builtin.systemd_service:
+        name: '{{ item }}'
+        state: restarted
+      loop:
+        - httpd@first
+        - httpd@second
+
+    - name: Restart spawn-fcgi
+      ansible.builtin.systemd_service:
+        name: spawn-fcgi.service
+        state: restarted

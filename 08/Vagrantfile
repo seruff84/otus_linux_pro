@@ -1,0 +1,55 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+MACHINES = {
+    :lab08 => {
+        :box_name => "centos/7",
+        :box_version => "2004.01",
+        :ip_addr => '192.168.56.101',
+        :provision => "lvm.sh",
+        :cpus => 2,
+        :memory => 2048
+    }
+}
+
+Vagrant.configure("2") do |config|
+
+    MACHINES.each do |boxname, boxconfig|
+        config.vagrant.plugins = ['vagrant-host-shell','vagrant-reload']
+        config.vm.define boxname do |box|
+            box.vm.box_version = boxconfig[:box_version]
+            box.vm.box = boxconfig[:box_name]
+            box.vm.host_name = boxname.to_s
+            box.vm.network "private_network", ip: boxconfig[:ip_addr]
+            box.vm.provider :virtualbox do |vb|
+                vb.customize ["modifyvm", :id, "--memory", "1024"]
+                vb.customize ["modifyvm", :id, "--graphicscontroller", "vmsvga"]
+            end
+            box.vm.disk :disk, size: "10GB", name: "new_disk", disk_ext:"vmdk"
+            box.vm.provision "shell", path: boxconfig[:provision]
+            box.vm.provision "host_shell" , inline:<<-SHELL
+                sleep 5
+                VBoxManage storageattach $(VBoxManage list vms | grep lab08 | cut -d ' ' -f 2) --storagectl 'IDE' --port 0 --device 0 --type hdd --medium none
+                VBoxManage storageattach $(VBoxManage list vms | grep lab08 | cut -d ' ' -f 2) --storagectl 'IDE' --port 0 --device 1 --type hdd --medium none
+                VBoxManage storageattach $(VBoxManage list vms | grep lab08 | cut -d ' ' -f 2) --storagectl 'IDE' --port 0 --device 0 --type hdd --medium $HOME/VirtualBox\\ VMs/$(VBoxManage list vms | grep lab08 | cut -d ' ' -f 1| tr -d '"')/new_disk.vmdk
+              SHELL
+            box.vm.provision :reload
+            box.vm.provision "shell" , inline:<<-SHELL
+                vgrename VolGroup00 OtusRoot
+                sed -i s'/VolGroup00/OtusRoot/g' /etc/fstab
+                sed -i s'/VolGroup00/OtusRoot/g' /etc/default/grub
+                sed -i s'/VolGroup00/OtusRoot/g' /boot/grub2/grub.cfg
+                dracut -f -v /boot/initramfs-$(uname -r).img $(uname -r)
+            SHELL
+            box.vm.provision :reload
+            box.vm.provision "shell" , inline:<<-SHELL
+                mkdir /usr/lib/dracut/modules.d/01test
+                curl -o /usr/lib/dracut/modules.d/01test/module-setup.sh  https://gist.githubusercontent.com/lalbrekht/e51b2580b47bb5a150bd1a002f16ae85/raw/80060b7b300e193c187bbcda4d8fdf0e1c066af9/gistfile1.txt
+                curl -o /usr/lib/dracut/modules.d/01test/test.sh https://gist.githubusercontent.com/lalbrekht/ac45d7a6c6856baea348e64fac43faf0/raw/69598efd5c603df310097b52019dc979e2cb342d/gistfile1.txt
+                mkinitrd -f -v /boot/initramfs-$(uname -r).img $(uname -r)
+                dracut -f -v
+                lsinitrd -m /boot/initramfs-$(uname -r).img | grep test
+            SHELL
+            box.vm.provision :reload
+        end
+    end
+end

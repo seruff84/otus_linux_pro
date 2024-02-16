@@ -11,7 +11,7 @@
 Описание/Пошаговая инструкция выполнения домашнего задания:
 Для выполнения домашнего задания используйте методичку
 
-[Работа с загрузчиком(]https://docs.google.com/document/d/1fRE_BFi-sFuLUUXKC8WHeGrFtPDXlTWznFgj3Z-xBM8/edit)
+[Работа с загрузчиком](https://docs.google.com/document/d/1fRE_BFi-sFuLUUXKC8WHeGrFtPDXlTWznFgj3Z-xBM8/edit)
 
 Попасть в систему без пароля несколькими способами.
 Установить систему с LVM, после чего переименовать VG.

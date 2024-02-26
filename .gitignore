@@ -5,6 +5,8 @@
 */*.vdi
 */*.deb
 */*.zip
+*/*.log
+*/test.*
 .vscode
 01/simple/
 04/asterisk

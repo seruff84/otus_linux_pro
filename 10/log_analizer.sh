@@ -36,11 +36,4 @@ Server/application errors:\n$ERRORS\n\n\
 HTTP response codes:\n$HTTP_CODES" | /usr/sbin/sendmail -t
 echo "Report sent to $EMAIL"
 
-echo -e "From: nginx_log_analyzer@example.com\nTo: $EMAIL\nSubject: Nginx Log Analysis Report\n\n\
-Time range: $(date -d @$LAST_RUN) - $(date)\n\n\
-Top IP addresses:\n$TOP_IP\n\n\
-Top requested URLs:\n$TOP_URL\n\n\
-Server/application errors:\n$ERRORS\n\n\
-HTTP response codes:\n$HTTP_CODES" >> /tmp/1
-
 echo $(date +%s) > $LAST_RUN_FILE

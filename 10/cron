@@ -1,1 +1,1 @@
-@hourly     root   /usr/bin/log_analizer.sh
+0 * * * *     root   /usr/bin/log_analizer.sh

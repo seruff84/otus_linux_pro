@@ -7,7 +7,7 @@ for PID in /proc/[0-9]*; do
         if [ -f "/proc/$PID/stat" ]; then
             STAT=$(awk '{print $3}' "/proc/$PID/stat")
             TTY=$(awk '{print $7}' "/proc/$PID/stat")
-            COMM=$(awk '{print $2}' "/proc/$PID/stat" | tr -d "()")
+            #CMD=$(awk '{print $2}' "/proc/$PID/stat" | tr -d "()")
             CMD=$(cat "/proc/$PID/cmdline" | tr '\0' ' ' | awk '{$1=$1};1')
 
             if [ "$TTY" -eq 0 ]; then

@@ -1,0 +1,37 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+MACHINES = {
+    :lab12 => {
+        :box_name => "centos/7",
+        :box_version => "2004.01",
+        :ip_addr => '192.168.56.101',
+        :cpus => 2,
+        :memory => 2048,
+        :provision => "script1.sh"
+
+    }
+}
+
+Vagrant.configure("2") do |config|
+
+    MACHINES.each do |boxname, boxconfig|
+        config.vm.define boxname do |box|
+            box.vm.box_version = boxconfig[:box_version]
+            box.vm.box = boxconfig[:box_name]
+            box.vm.host_name = boxname.to_s
+            box.vm.network "private_network", ip: boxconfig[:ip_addr]
+            box.vm.provider :virtualbox do |vb|
+                vb.customize ["modifyvm", :id, "--memory", "1024"]
+                vb.customize ["modifyvm", :id, "--graphicscontroller", "vmsvga"]
+            end
+            box.vm.provision "shell", path: boxconfig[:provision]
+            # box.vm.provision "shell" , inline:<<-SHELL
+            #     localedef -i ru_RU -f UTF-8 ru_RU.UTF-8
+            #     yum install -y epel-release
+            #     yum install -y nano setroubleshoot-server selinux-policy-mls setools-console policycoreutils-python policycoreutils-newrole nginx
+            #     sed -Ei 's/(listen[[:space:]]*)80/\19081/g' /etc/nginx/nginx.conf
+            #     systemctl enable nginx
+            # SHELL
+        end
+    end
+end

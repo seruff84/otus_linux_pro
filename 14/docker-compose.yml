@@ -3,7 +3,6 @@ version: '3.8'
 networks:
   monitoring:
     driver: bridge
-  access:
 
 volumes:
   prometheus_data: {}
@@ -62,4 +61,3 @@ services:
       - 3000:3000
     networks:
       - monitoring
-      - access

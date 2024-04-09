@@ -1,0 +1,63 @@
+---
+- name: PAM | Try PAM system
+  hosts: all
+  become: true
+  vars:
+    otus_users: 
+      - otus
+      - otusadm
+    admin_users:
+      - otusadm
+      - root
+      - vagrant
+
+  tasks:
+    - name: Enable ssh password auth
+      lineinfile:
+        dest: "/etc/ssh/sshd_config.d/60-cloudimg-settings.conf"
+        regexp: "^PasswordAuthentication "
+        line: "PasswordAuthentication yes"
+      notify: Restart sshd
+
+    - name: Ensure group "admin" exists
+      ansible.builtin.group:
+        name: admin
+        state: present
+
+    - name: Ensure otus users usersexists
+      ansible.builtin.user:
+        name: "{{ item }}"
+        shell: /bin/bash
+        append: yes
+        password: '$6$UPMwM0UE6oahRn3v$X9kG9c6jYClrS36ySoZehQXO0TtdpeinFajpFxj0acTl19HQxC.7F/7TieSR.veOgq6IswIx9YG3K/.7kVxvo1'
+      loop: "{{ otus_users }}"
+    
+    - name: add admin users to group
+      ansible.builtin.user:
+        name: "{{ item }}"
+        groups: admin
+      loop: "{{ admin_users }}"
+      
+    - name: Copy file with permissions
+      ansible.builtin.copy:
+        src: login.sh
+        dest: /usr/local/bin/login.sh
+        mode: '0750'
+            
+    - name: add to ansible hosts file
+      lineinfile:
+        dest: "/etc/pam.d/sshd"
+        insertafter: '@include common-auth'
+        line: "auth required pam_exec.so debug /usr/local/bin/login.sh"
+
+    - name: Reconfigure Timezone Data
+      command: timedatectl set-timezone Europe/Moscow
+      when: ansible_date_time.tz != 'MSK'
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.service:
+        name: sshd
+        state: restarted
+
+        

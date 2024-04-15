@@ -1,0 +1,126 @@
+---
+- name: Setup web server
+  hosts: web
+  become: true
+  vars:
+    log_server: 192.168.56.15
+  tasks:
+
+    - name: Reconfigure timezone
+      ansible.builtin.command: timedatectl set-timezone Europe/Moscow
+      when: ansible_date_time.tz != 'MSK'
+
+    - name: Install pakage
+      ansible.builtin.apt:
+        pkg:
+        - nginx
+        - auditd
+        state: present
+        update_cache: true
+
+    - name: Send error log to syslog
+      ansible.builtin.lineinfile:
+        dest: "/etc/nginx/nginx.conf"
+        insertafter: 'error_log /var/log/nginx/error.log;'
+        line: "        error_log  syslog:server={{ log_server }}:514,tag=nginx_error;"
+      notify: Restart nginx
+
+    - name: Send access log to syslog
+      ansible.builtin.lineinfile:
+        dest: "/etc/nginx/nginx.conf"
+        regexp: '^(\s*)access_log '
+        line: '\1access_log syslog:server={{ log_server }}:514,tag=nginx_access,severity=info combined;'
+        backrefs: true
+      notify: Restart nginx
+
+    - name: Configure auditd
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/audit.rules
+        line: -w /etc/nginx/ -p wa -k nginx_config_change
+      notify: Restart auditd
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: rsyslog.d/15-audit-remote.conf
+        dest: /etc/rsyslog.d/15-audit-remote.conf
+        mode: '0644'
+      notify: Restart rsyslog
+
+  handlers:
+    - name: Restart nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+
+    - name: Restart auditd
+      ansible.builtin.service:
+        name: auditd
+        state: restarted
+
+    - name: Restart rsyslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted
+
+
+- name: Setup log server
+
+  hosts: log
+  become: true
+  vars:
+  tasks:
+
+    - name: Reconfigure timezone
+      ansible.builtin.command: timedatectl set-timezone Europe/Moscow
+      when: ansible_date_time.tz != 'MSK'
+
+    - name: Configure rsyslog module
+      ansible.builtin.replace:
+        path: "/etc/rsyslog.conf"
+        regexp: '^#(module\(load="(imtcp|imudp)"\))'
+        replace: '\1'
+      notify: Restart rsyslog
+
+    - name: Configure rsyslog input
+      ansible.builtin.replace:
+        path: "/etc/rsyslog.conf"
+        regexp: '^#(input\(type="(imtcp|imudp)" port="514"\))'
+        replace: '\1'
+      notify: Restart rsyslog
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: rsyslog.d/60-otus.conf
+        dest: /etc/rsyslog.d/60-otus.conf
+        mode: '0644'
+      notify: Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted
+
+- name: Setup srv server
+
+  hosts: srv
+  become: true
+  vars:
+  tasks:
+    - name: Reconfigure timezone
+      ansible.builtin.command: timedatectl set-timezone Europe/Moscow
+      when: ansible_date_time.tz != 'MSK'
+
+    - name: Configure rsyslog
+      ansible.builtin.lineinfile:
+        path: "/etc/rsyslog.d/60-all-remote.conf"
+        line: '*.* @192.168.56.15:514'
+        create: true
+        mode: '0644'
+      notify: Restart rsyslog
+
+  handlers:
+    - name: Restart rsyslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted

@@ -39,12 +39,20 @@
         line: -w /etc/nginx/ -p wa -k nginx_config_change
       notify: Restart auditd
 
-    - name: Copy file with owner and permissions
-      ansible.builtin.copy:
-        src: rsyslog.d/15-audit-remote.conf
+    # - name: Copy file with owner and permissions
+    #   ansible.builtin.copy:
+    #     src: rsyslog.d/15-audit-remote.conf
+    #     dest: /etc/rsyslog.d/15-audit-remote.conf
+    #     mode: '0644'
+    #   notify: Restart rsyslog
+
+    - name: Template a file to rsyslog.d/15-audit-remote.conf
+      ansible.builtin.template:
+        src: rsyslog.d/15-audit-remote.conf.j2
         dest: /etc/rsyslog.d/15-audit-remote.conf
         mode: '0644'
       notify: Restart rsyslog
+
 
   handlers:
     - name: Restart nginx
@@ -106,6 +114,7 @@
   hosts: srv
   become: true
   vars:
+    log_server: 192.168.56.15
   tasks:
     - name: Reconfigure timezone
       ansible.builtin.command: timedatectl set-timezone Europe/Moscow
@@ -114,7 +123,7 @@
     - name: Configure rsyslog
       ansible.builtin.lineinfile:
         path: "/etc/rsyslog.d/60-all-remote.conf"
-        line: '*.* @192.168.56.15:514'
+        line: '*.* @{{ log_server }}:514'
         create: true
         mode: '0644'
       notify: Restart rsyslog

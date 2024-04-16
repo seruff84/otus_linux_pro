@@ -1,0 +1,14 @@
+---
+- name: Setup web server
+  hosts: all
+  become: true
+  vars:
+
+  tasks:
+    - debug:
+    
+        var: log_server
+
+
+
+

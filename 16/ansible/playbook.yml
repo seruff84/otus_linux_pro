@@ -3,7 +3,7 @@
   hosts: web
   become: true
   vars:
-    log_server: 192.168.56.15
+    #log_server: 192.168.56.15
   tasks:
 
     - name: Reconfigure timezone
@@ -114,7 +114,7 @@
   hosts: srv
   become: true
   vars:
-    log_server: 192.168.56.15
+    #log_server: 192.168.56.15
   tasks:
     - name: Reconfigure timezone
       ansible.builtin.command: timedatectl set-timezone Europe/Moscow

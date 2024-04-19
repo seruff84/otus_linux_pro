@@ -1,0 +1,159 @@
+---
+- name: Setup all 
+  hosts: all
+  become: true
+  vars:
+  tasks:
+
+    - name: Reconfigure timezone
+      ansible.builtin.command: timedatectl set-timezone Europe/Moscow
+      when: ansible_date_time.tz != 'MSK'
+
+    - name: Install pakage
+      ansible.builtin.apt:
+        name: borgbackup
+        state: present
+        update_cache: true
+
+- name: Setup backup server
+  hosts: backup
+  become: true
+  vars:
+    filesystem:  "ext4"
+    backup_disk: "/dev/sdb"
+    backup_path: "/var/backup"
+  tasks:
+
+    - name: Add the user 'borg' 
+      ansible.builtin.user:
+        name: borg
+        shell: /bin/bash
+
+    - name: Create a directory if it does not exist
+      ansible.builtin.file:
+        path: /var/backup
+        state: directory
+        owner: borg
+        group: borg
+        mode: '0750'
+
+    - name: Create a ext2 filesystem on /dev/sdb1
+      community.general.filesystem:
+        fstype: "{{ filesystem }}"
+        dev: "{{ backup_disk }}"
+
+    - name: Mount up device by label
+      ansible.posix.mount:
+        path: "{{ backup_path }}"
+        src: "{{ backup_disk }}"
+        fstype: "{{ filesystem }}"
+        state: mounted
+    - name: Change file ownership, group and permissions
+      ansible.builtin.file:
+        path: "{{ backup_path }}"
+        owner: borg
+        group: borg
+        mode: '0750'
+        recurse: true
+
+
+- name: Setup client server
+  hosts: client
+  become: true
+  vars:
+    filesystem: "ext4"
+    backup_disk: "/dev/sdb"
+    backup_path: "/var/backup"
+    borg_passfrase: "Otus1234"
+  tasks:
+
+    - name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+      community.crypto.openssh_keypair:
+        path: ~/.ssh/id_rsa
+      register: key
+
+    - name: Set authorized key taken from file
+      authorized_key:
+        user: borg
+        state: present
+        key: "{{ key.public_key }}"
+      delegate_to: backup
+
+    - name: Set StrictHostKeyChecking no in ssh_config
+      ansible.builtin.lineinfile:
+        dest: "/etc/ssh/ssh_config"
+        regexp: '^#(.*)StrictHostKeyChecking '
+        line: '    StrictHostKeyChecking no'
+
+    - name: Init Borg Backup repo
+      ansible.builtin.command: >
+         borg list borg@{{ backup_server }}:{{ backup_path }}
+      environment:
+        BORG_PASSPHRASE: "{{ borg_passfrase }}"
+      register: result
+      changed_when: result.rc == 2
+      failed_when:
+        - '"is not a valid repository. Check repo config" not in result.stderr'
+        - result.rc == 2
+
+    - ansible.builtin.debug:
+        var: result
+
+    - name: Empty the backup folder if the repository does not exist
+      ansible.builtin.command: >
+         ssh borg@{{ backup_server }} 'rm -rf {{ backup_path }}/*'
+      become: true
+      when:
+        - '"is not a valid repository. Check repo config" in result.stderr'
+        - result.rc == 2
+
+    - name: Init Borg Backup
+      ansible.builtin.command: >
+        borg init --encryption=repokey borg@{{ backup_server }}:{{ backup_path }}
+      environment:
+        BORG_PASSPHRASE: "{{ borg_passfrase }}"
+      become: true
+      when:
+        - '"is not a valid repository. Check repo config" in result.stderr'
+        - result.rc == 2
+
+    - name: Check Borg Backup
+      ansible.builtin.command: >
+        borg create --stats --list borg@{{ backup_server }}:{{ backup_path }}::"etc-{now:%Y-%m-%d_%H:%M:%S}" /etc
+      environment:
+        BORG_PASSPHRASE: "{{ borg_passfrase }}"
+      become: true
+      when:
+        - '"is not a valid repository. Check repo config" in result.stderr'
+        - result.rc == 2
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: files/borg-backup.timer
+        dest: /etc/systemd/system/borg-backup.timer
+        mode: '0644'
+      notify: Start borg
+
+    - name: Template a file to /etc/systemd/system/borg-backup.service
+      ansible.builtin.template:
+        src: templates/borg-backup.service.j2
+        dest: /etc/systemd/system/borg-backup.service
+        mode: '0644'
+      notify: Start borg
+
+  handlers:
+    - name: Enable service borg-backup.timer and start
+      ansible.builtin.systemd_service:
+        name: borg-backup.timer
+        state: restarted
+        enabled: true
+        masked: no
+      listen: Start borg
+      
+    - name: Start borg-backup.service
+      ansible.builtin.systemd_service:
+        name: borg-backup.service
+        state: restarted
+        enabled: false
+        masked: no
+      listen: Start borg

@@ -1,0 +1,36 @@
+Vagrant.configure("2") do |config|
+  # Base VM OS configuration.
+  config.vm.box = "bento/ubuntu-22.04"
+  config.vm.provider :virtualbox do |v|
+    v.memory = 1512
+    v.cpus = 2
+  end
+
+  # Define two VMs with static private IP addresses.
+  boxes = [
+    { :name => "backup",
+      :ip => "192.168.56.160",
+    },
+    { :name => "client",
+      :ip => "192.168.56.150",
+     },
+  ]
+  # Provision each of the VMs.
+  boxes.each do |opts|
+    config.vm.define opts[:name] do |config|
+      config.vm.hostname = opts[:name]
+      config.vm.network "private_network", ip: opts[:ip]
+      if opts[:name] == boxes.first[:name]
+        config.vm.disk :disk, name: "backup", size: "2GB"
+      end
+      config.vm.provision "ansible" do |ansible|
+        ansible.playbook = "ansible/playbook.yml"
+        ansible.host_key_checking = "false"
+        ansible.extra_vars = {
+          backup_server: boxes[0][:ip]
+        }
+        ansible.verbose = ""
+      end
+    end
+  end
+end

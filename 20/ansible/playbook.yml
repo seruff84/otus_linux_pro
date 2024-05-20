@@ -1,0 +1,150 @@
+---
+- name: Setup all
+  hosts: all
+  become: true
+  vars:
+    iptables_rules: "/etc/iptables/rules.v4"
+  tasks:
+    - name: Set cidr fact
+      ansible.builtin.set_fact:
+        cidr: "{{ cidr | default([]) +
+                  [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
+      loop: "{{ ansible_interfaces |
+                  map('extract', ansible_facts, 'ipv4') |
+                  select('defined') | list }}"
+
+    # - name: Enable default route
+    #   ansible.builtin.copy:
+    #     src: "files/etc/netplan/00-installer-config-en.yaml"
+    #     dest: "/etc/netplan/00-installer-config.yaml"
+    #     owner: root
+    #     group: root
+    #     mode: "060"
+    #     validate: netplan try --config-file %s --timeout 5
+    #   when: (ansible_hostname != "inetRouter")
+
+    # - name: Reload netplan config
+    #   ansible.builtin.command: "netplan apply"
+
+    - name: Reconfigure timezone
+      ansible.builtin.command: timedatectl set-timezone Europe/Moscow
+      when: ansible_date_time.tz != 'MSK'
+
+    - name: Install pakage
+      ansible.builtin.apt:
+        package:
+          - iptables-persistent
+          - traceroute
+          - ipset
+          - nmap
+        state: present
+        update_cache: true
+
+    - name: Install FRR
+      ansible.builtin.apt:
+        package:
+          - frr
+          - frr-pythontools
+        state: present
+      when: "'routers' in group_names"
+
+    - name: Install nginx
+      ansible.builtin.apt:
+        package:
+          - nginx
+        state: present
+        update_cache: true
+      when: 'ansible_hostname == "centralServer"'
+
+    - name: Set up forward packages across routers
+      ansible.posix.sysctl:
+        name: net.ipv4.conf.all.forwarding
+        value: '1'
+        state: present
+      when: "'routers' in group_names"
+
+    - name: Enable ospf
+      ansible.builtin.lineinfile:
+        dest: "/etc/frr/daemons"
+        regexp: '^ospfd=.*'
+        line: 'ospfd=yes'
+      when: "'routers' in group_names"
+      notify: Restart frr
+
+    - name: Configure frr
+      ansible.builtin.template:
+        src: "templates/etc/frr.conf.j2"
+        dest: "/etc/frr/frr.conf"
+        owner: frr
+        group: frr
+        mode: "0640"
+      when: "'routers' in group_names"
+      notify: Restart frr
+
+    - name: Set up NAT on inetRouter
+      ansible.builtin.copy:
+        src: "files/etc/iptables/rules.v4.{{ ansible_hostname }}"
+        dest: "{{ iptables_rules }}"
+        owner: root
+        group: root
+        mode: "0644"
+      when: '"inetRouter" in ansible_hostname'
+      notify: Load iptables rules
+
+    - name: Set up ipset
+      ansible.builtin.copy:
+        src: "files/etc/ipset.conf"
+        dest: "/etc/ipset.conf"
+        owner: root
+        group: root
+        mode: "0644"
+      when: 'ansible_hostname == "inetRouter"'
+      notify: Load ipset rules
+  
+    - name: Disable default route
+      ansible.builtin.copy:
+        src: "files/etc/netplan/00-installer-config.yaml"
+        dest: "/etc/netplan/00-installer-config.yaml"
+        owner: root
+        group: root
+        mode: "060"
+        validate: netplan try --config-file %s --timeout 5
+      when: (ansible_hostname != "inetRouter")
+      notify: Reload netplan config
+
+    - name: Add default gateway for hosts
+      ansible.builtin.copy:
+        src: "files/etc/netplan/60-ansible_{{ ansible_hostname }}.yaml"
+        dest: "/etc/netplan/60-ansible.yaml"
+        owner: root
+        group: root
+        mode: "0600"
+        validate: netplan try --config-file %s --timeout 5
+      when: '"inetRouter" not in ansible_hostname' 
+      notify: Reload netplan config
+
+    - name: Ensure that knocking script ar existe
+      ansible.builtin.copy:
+        src: "files/knocking.sh"
+        dest: "/home/vagrant/knocking.sh"
+        owner: vagrant
+        group: vagrant
+        mode: "0700"
+      when: (ansible_hostname == "centralRouter")
+
+  handlers:
+    - name: Load ipset rules
+      ansible.builtin.command: "ipset restore -f /etc/ipset.conf"
+
+    - name: Load iptables rules
+      ansible.builtin.command: iptables-restore "{{ iptables_rules }}"
+
+    - name: Reload netplan config
+      ansible.builtin.command: "netplan apply"
+
+    - name: Restart frr
+      ansible.builtin.systemd_service:
+        name: frr.service
+        state: restarted
+        enabled: true
+

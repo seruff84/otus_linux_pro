@@ -26,7 +26,6 @@
     ansible.builtin.command: timedatectl set-timezone Europe/Moscow
     when: ansible_date_time.tz != 'MSK'
 
-
   - name: Add an Apt signing key, uses whichever key is at the URL
     ansible.builtin.apt_key:
       url: https://deb.frrouting.org/frr/keys.asc
@@ -62,7 +61,6 @@
       value: '0'
       state: present
 
-
   - name: Enable ospf
     ansible.builtin.lineinfile:
       dest: "/etc/frr/daemons"
@@ -80,7 +78,6 @@
     notify: Restart frr
     tags:
       - setup_ospf
-
 
 
   handlers:

@@ -1,0 +1,38 @@
+frr version 10.0
+frr defaults traditional
+hostname {{ansible_hostname}}
+log file /var/log/frr/frr.log
+log syslog informational
+no ipv6 forwarding
+service integrated-vtysh-config
+!
+interface eth1
+ description r1-r2
+ ip ospf mtu-ignore
+{% if ansible_hostname == 'router1' %}
+ ip ospf cost 1000
+{% elif ansible_hostname == 'router2' and symmetric_routing == true %}
+ ip ospf cost 1000
+{% else %}
+ !ip ospf cost 450
+{% endif %}
+exit
+!
+interface eth2
+ description r1-r3
+ ip ospf mtu-ignore
+exit
+!
+interface eth3
+ description net_router1
+ ip ospf mtu-ignore
+exit
+!
+router ospf
+{% if router_id_enable == false %}!{% endif %}ospf router-id {{router_id}}.{{router_id}}.{{router_id}}.{{router_id}}
+{% for item in cidr %}
+{% if ('10.0.' in item and '10.0.2.' not in item) or ('192.168.' in item and '192.168.50' not in item) %}
+network {{item}} area 0
+{% endif %}
+{% endfor %}
+exit

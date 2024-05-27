@@ -1,0 +1,92 @@
+---
+- name: OSPF
+  hosts: all
+  become: yes
+  vars_files:
+    - defaults/main.yml
+  tasks:
+
+  - name: Set cidr fact
+    ansible.builtin.set_fact:
+      cidr: "{{ cidr | default([]) +
+                [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
+    loop: "{{ ansible_interfaces |
+                map('extract', ansible_facts, 'ipv4') |
+                select('defined') | list }}"
+    tags:
+      - setup_ospf
+  
+  - name: Set router id fact
+    ansible.builtin.set_fact:
+      router_id: "{{ansible_hostname[-1]}}"
+    tags:
+      - setup_ospf
+  
+  - name: Reconfigure timezone
+    ansible.builtin.command: timedatectl set-timezone Europe/Moscow
+    when: ansible_date_time.tz != 'MSK'
+
+
+  - name: Add an Apt signing key, uses whichever key is at the URL
+    ansible.builtin.apt_key:
+      url: https://deb.frrouting.org/frr/keys.asc
+      state: present
+      
+  - name: Add specified repository into sources list using specified filename
+    ansible.builtin.apt_repository:
+      repo: deb https://deb.frrouting.org/frr "{{ansible_distribution_release}}" frr-stable
+      state: present
+      filename: frr
+
+  - name: install base tools
+    apt:
+      name:
+        - vim
+        - traceroute
+        - tcpdump
+        - net-tools
+        - frr 
+        - frr-pythontools
+      state: present
+      update_cache: true
+  
+  - name: Set up forward packages across routers
+    ansible.posix.sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+
+  - name: Set up net.ipv4.conf.all.rp_filter
+    ansible.posix.sysctl:
+      name: net.ipv4.conf.all.rp_filter
+      value: '0'
+      state: present
+
+
+  - name: Enable ospf
+    ansible.builtin.lineinfile:
+      dest: "/etc/frr/daemons"
+      regexp: '^ospfd=.*'
+      line: 'ospfd=yes'
+    notify: Restart frr
+    
+  - name: Configure frr
+    ansible.builtin.template:
+      src: "templates/etc/frr.conf.j2"
+      dest: "/etc/frr/frr.conf"
+      owner: frr
+      group: frr
+      mode: "0640"
+    notify: Restart frr
+    tags:
+      - setup_ospf
+
+
+
+  handlers:
+    - name: Restart frr
+      ansible.builtin.systemd_service:
+        name: frr.service
+        state: restarted
+        enabled: true
+

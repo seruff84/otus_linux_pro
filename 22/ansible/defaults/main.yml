@@ -1,0 +1,16 @@
+openvpn_etcdir: /etc/openvpn
+openvpn_datadir: "{{ openvpn_etcdir }}/data"
+openvpn_pki_dir: "{{ openvpn_etcdir }}/pki"
+openvpn_tls_key: "{{ openvpn_pki_dir }}/ta.key"
+openvpn_easyrsa_vars: "{{ openvpn_pki_dir }}/vars"
+
+openvpn_key_country: RU
+openvpn_key_province: VRN
+openvpn_key_city: Voronezh
+openvpn_key_org: myCorp Ltd.
+openvpn_key_email: me@myhost.mydomain
+openvpn_key_size: 2048
+
+
+openvpn_clients: ['client']
+openvpn_clients_revoke: []

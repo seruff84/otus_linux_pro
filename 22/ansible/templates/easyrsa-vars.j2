@@ -1,0 +1,11 @@
+EASYRSA_PKI='{{ openvpn_pki_dir }}'
+
+EASYRSA_KEY_SIZE='{{ openvpn_key_size }}'
+
+EASYRSA_REQ_COUNTRY='{{ openvpn_key_country }}'
+EASYRSA_REQ_PROVINCE='{{ openvpn_key_province }}'
+EASYRSA_REQ_CITY='{{ openvpn_key_city }}'
+EASYRSA_REQ_ORG='{{ openvpn_key_org }}'
+EASYRSA_REQ_EMAIL='{{ openvpn_key_email }}'
+EASYRSA_REQ_OU='{{ openvpn_key_ou|default("MyOrganizationalUnit") }}'
+EASYRSA_REQ_CN='EasyRSA'

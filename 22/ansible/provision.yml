@@ -1,0 +1,90 @@
+---
+- name: Openvpn 
+  hosts: all
+  become: yes
+  vars_files:
+    - defaults/main.yml
+  tasks:
+
+  - name: Reconfigure timezone
+    ansible.builtin.command: timedatectl set-timezone Europe/Moscow
+    when: ansible_date_time.tz != 'MSK'
+
+  - name: install base tools
+    apt:
+      name:
+        - traceroute
+        - tcpdump
+        - net-tools
+        - openvpn 
+        - iperf3
+      state: present
+      update_cache: true
+
+  - name: install easy-rsa on server
+    apt:
+      name:
+        - easy-rsa
+      state: present
+      update_cache: true
+    when: (ansible_hostname == "server")
+
+  - name: IMPORT_TASKS | EasyRSA
+    import_tasks: tasks/easyrsa.yml
+
+  - name: Copy privat-key
+    copy:
+      src: ../../.vagrant/machines/server/virtualbox/private_key 
+      dest: ~/.ssh/id_rsa
+      mode: 0600
+
+
+  - name: Create dirs
+    file:
+      path: '{{ openvpn_pki_dir }}/{{item}}'
+      state: directory    
+    loop: 
+    - private
+    - issued
+
+  - name: Create dirs
+    file:
+      path: '{{ openvpn_pki_dir }}'
+      state: directory  
+    when: (ansible_hostname == "client")  
+
+  - name: Create ccd dir
+    file:
+      path: '{{ openvpn_etcdir }}/ccd'
+      state: directory  
+    when: (ansible_hostname == "server")  
+
+  - name: Transfer file from Server to Client
+    synchronize:
+      #rsync_opts: -ar
+      private_key: ~/ssh/id_rsa
+      src: '{{ openvpn_pki_dir }}/{{item}}'
+      dest: '{{ openvpn_pki_dir }}/{{item}}'
+      mode: pull
+    loop: 
+    - ta.key
+    - ca.crt
+    - dh.pem
+    - private/client.key
+    - issued/client.crt
+    
+    delegate_to: client
+    run_once: true
+
+  - name: Copy config
+    copy:
+      src: '{{ansible_hostname}}/{{item}}'
+      dest: '{{openvpn_etcdir}}/{{ansible_hostname}}/{{item}}'
+    loop:
+      - tap.conf
+      - tun.conf
+
+  - name: Stop service openvpn
+    ansible.builtin.service:
+      name: openvpn
+      state: stopped

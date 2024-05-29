@@ -1,0 +1,80 @@
+---
+
+- name: EasyRSA
+  block:
+  - name: FILE | Creates easy-rsa base directory
+    file:
+      path: "{{ openvpn_pki_dir | basename }}"
+      state: directory
+
+  - name: COMMAND | Init PKI
+    command: "/usr/share/easy-rsa/easyrsa init-pki"
+    args:
+      creates: "{{ openvpn_pki_dir }}"
+      chdir: "{{ openvpn_pki_dir | dirname }}"
+
+  - name: COMMAND | Generate .rnd file
+    command: "dd if=/dev/urandom of={{ openvpn_pki_dir }}/.rnd bs=256 count=1"
+    args:
+      creates: "{{ openvpn_pki_dir }}/.rnd"
+
+  - name: FILE | Bypasses EasyRSA issue
+    file:
+      src: "/usr/share/easy-rsa/x509-types"
+      dest: "{{ openvpn_pki_dir }}/x509-types"
+      state: link
+
+  - name: TEMPLATE | Deploy easy-rsa env vars
+    template:
+      src: 'templates/easyrsa-vars.j2'
+      dest: '{{ openvpn_easyrsa_vars }}'
+
+  - name: COMMAND | Init CA 
+    command: "/usr/share/easy-rsa/easyrsa --batch --vars={{ openvpn_easyrsa_vars }} build-ca nopass"
+    args:
+      creates: "{{ openvpn_pki_dir }}/ca.crt"
+
+  - name: COMMAND | Generate clients keys
+    command: "/usr/share/easy-rsa/easyrsa --vars={{ openvpn_easyrsa_vars }} build-client-full {{ item }} nopass"
+    args:
+      creates: "{{ openvpn_pki_dir }}/private/{{ item }}.key"
+    loop: "{{ openvpn_clients }}"
+
+  - name: COMMAND | Generate server keys
+    command: "/usr/share/easy-rsa/easyrsa --vars={{ openvpn_easyrsa_vars }} build-client-full server nopass"
+    args:
+      creates: "{{ openvpn_pki_dir }}/private/server.key"
+
+  - name: COMMAND | Revoke keys
+    command: "/usr/share/easy-rsa/easyrsa --batch --vars={{ openvpn_easyrsa_vars }} revoke {{ item }}"
+    args:
+      removes: "{{ openvpn_pki_dir }}/private/{{ item }}.key"
+    loop: "{{ openvpn_clients_revoke }}"
+    register: revoked
+
+  - name: COMMAND | Generate DH
+    command: "/usr/share/easy-rsa/easyrsa --batch --vars={{ openvpn_easyrsa_vars }} gen-dh"
+    args:
+      creates: "{{ openvpn_pki_dir }}/dh.pem"
+
+  - name: FILE | Create client configuration directory if requested
+    file:
+      path: "{{ openvpn_client_config_dir }}"
+      mode: 0755
+      state: directory
+    when: openvpn_client_config_dir is defined
+
+  - name: COMMAND | Generate CRL
+    command: /usr/share/easy-rsa/easyrsa --batch --vars={{ openvpn_easyrsa_vars }} gen-crl
+    when: revoked.changed
+
+  - name: STAT | Check if crl.pem exists
+    stat:
+      path: "{{ openvpn_pki_dir }}/crl.pem"
+    register: crl_pem_file
+
+  - name: COMMAND | Generate TLS auth key
+    command: openvpn --genkey --secret {{ openvpn_tls_key }} 
+    args:
+      creates: "{{ openvpn_tls_key }}" 
+  when: (ansible_hostname == "server")

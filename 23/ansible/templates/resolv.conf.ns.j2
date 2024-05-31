@@ -1,0 +1,3 @@
+domain dns.lab
+search dns.lab
+nameserver {{ ansible_all_ipv4_addresses | ansible.utils.ipaddr('192.168.0.0/16') | first }}

@@ -1,0 +1,141 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+  
+  - name: install bind
+    ansible.builtin.package:
+      name:
+        - bind
+        - bind-utils
+      update_cache: true
+    when: '"clinent" not in ansible_hostname'
+
+
+  - name: copy resolv.conf to the servers
+    ansible.builtin.template: 
+      src="resolv.conf.{{ansible_hostname[0:2]}}.j2"
+      dest=/etc/resolv.conf 
+      owner=root 
+      group=root mode=0644
+      
+  - name: Reconfigure timezone
+    ansible.builtin.command: timedatectl set-timezone Europe/Moscow
+    when: ansible_date_time.tz != 'MSK'
+
+  - name: copy transferkey to all servers and the client
+    ansible.builtin.copy: src=named.zonetransfer.key 
+      dest=/etc/named.zonetransfer.key 
+      owner=root 
+      group=named 
+      mode=0644
+
+  - name: start chronyd
+    service: 
+      name: chronyd
+      state: started
+      enabled: true
+
+- hosts: ns01
+  become: yes
+  tasks:
+  - name: copy named.conf
+    ansible.builtin.copy: 
+      src=master-named.conf 
+      dest=/etc/named.conf 
+      owner=root 
+      group=named 
+      mode=0640
+    notify:
+      Restart named
+      
+  - name: copy zones
+    ansible.builtin.copy: 
+      src={{ item }} 
+      dest=/etc/named/ 
+      owner=root 
+      group=named 
+      mode=0660
+    with_fileglob:
+      - named.d*
+      - named.newdns.lab
+    notify:
+      Restart named
+  
+  - name: set /etc/named permissions
+    ansible.builtin.file: 
+      path=/etc/named
+      owner=root
+      group=named
+      mode=0670
+    notify:
+      Restart named
+
+  - name: ensure named is running and enabled
+    ansible.builtin.service: 
+      name=named 
+      state=started 
+      enabled=yes
+
+  handlers:
+    - name: Restart named
+      service:
+        name: named
+        state: restarted
+        enabled: true
+
+
+- hosts: ns02
+  become: yes
+  tasks:
+  - name: copy named.conf
+    ansible.builtin.copy: 
+      src=slave-named.conf
+      dest=/etc/named.conf
+      owner=root
+      group=named
+      mode=0640
+    notify:
+      Restart named
+
+  - name: set /etc/named permissions
+    ansible.builtin.file: 
+      path=/etc/named
+      owner=root
+      group=named
+      mode=0670
+    notify:
+      Restart named
+
+  - name: ensure named is running and enabled
+    ansible.builtin.service: 
+      name=named 
+      state=started 
+      enabled=yes
+
+  handlers:
+  - name: Restart named
+    service:
+      name: named
+      state: restarted
+      enabled: true
+    
+- hosts: client1, client2
+  become: yes
+  tasks:
+
+  - name: copy rndc conf file
+    ansible.builtin.copy: 
+      src=rndc.conf 
+      dest=/home/vagrant/rndc.conf 
+      owner=vagrant 
+      group=vagrant 
+      mode=0644
+
+  - name: copy motd to the client
+    ansible.builtin.copy: 
+      src=client-motd
+      dest=/etc/motd
+      owner=root
+      group=root
+      mode=0644

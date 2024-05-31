@@ -5,7 +5,7 @@
   - name: FILE | Creates easy-rsa base directory
     file:
       path: "{{ openvpn_pki_dir | basename }}"
-      state: directory
+      state: directoryupdate_cache: true
 
   - name: COMMAND | Init PKI
     command: "/usr/share/easy-rsa/easyrsa init-pki"

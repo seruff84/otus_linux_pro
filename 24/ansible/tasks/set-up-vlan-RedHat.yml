@@ -1,0 +1,10 @@
+# code: language=ansible
+---
+- name: Set up vlan1
+  ansible.builtin.template:
+    src: ifcfg-vlan1.j2
+    dest: /etc/sysconfig/network-scripts/ifcfg-vlan1
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart NetworkManager

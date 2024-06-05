@@ -1,0 +1,12 @@
+# code: language=ansible
+---
+- name: install software on CentOS
+  yum:
+    name:
+      - nano
+      - vim
+      - traceroute
+      - tcpdump
+      - net-tools
+    state: present
+    update_cache: true

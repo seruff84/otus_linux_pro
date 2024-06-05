@@ -1,5 +1,4 @@
 ---
-
 - name: EasyRSA
   block:
   - name: FILE | Creates easy-rsa base directory

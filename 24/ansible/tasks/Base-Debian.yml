@@ -1,0 +1,11 @@
+# code: language=ansible
+- name: install software on Debian-based
+  apt:
+    name: 
+      - nano
+      - vim
+      - traceroute
+      - tcpdump
+      - net-tools
+    state: present
+    update_cache: true

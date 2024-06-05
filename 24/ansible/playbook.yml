@@ -1,0 +1,37 @@
+---
+- name: Base set up.
+  hosts: all
+  become: true
+  tasks:
+  - name: Import OS specific tasks.
+    ansible.builtin.include_tasks: 'tasks/Base-{{ ansible_os_family }}.yml'
+
+
+- name: Set up vlan
+  hosts: Hosts
+  become: true
+  tasks:
+  - name: Import OS specific set up vlan tasks.
+    ansible.builtin.include_tasks: 'tasks/set-up-vlan-{{ ansible_os_family }}.yml'
+
+  handlers:
+  - name: Restart NetworkManager
+    ansible.builtin.service:
+      name: NetworkManager
+      state: restarted
+
+  - name: Netplan apply
+    ansible.builtin.shell: netplan apply
+    become: true
+
+- name: Set up bond0
+  hosts: inetRouter,centralRouter
+  become: true
+  tasks:
+  - name: Import Bonding tasks
+    ansible.builtin.import_tasks: 'tasks/setup-bonding.yml'
+
+  handlers:
+  - name: Restart hosts
+    ansible.builtin.reboot:
+      reboot_timeout: 3600

@@ -1,0 +1,104 @@
+---
+- name: Base set up
+  hosts: all
+  become: yes
+
+
+  tasks:
+  
+  - name: install base tools
+    ansible.builtin.package:
+      name:
+        - vim
+        - chrony
+      state: present
+      update_cache: true
+  
+  #Отключение firewalld и удаление его из автозагрузки
+  - name: disable firewalld
+    service:
+      name: firewalld
+      state: stopped
+      enabled: false
+  
+  #Отключение SElinux из автозагрузки
+  #Будет применено после перезагрузки
+  - name: disable SElinux
+    selinux:
+      state: disabled
+  
+  #Отключение SElinux до перезагрузки
+  - name: disable SElinux now
+    shell: setenforce 0
+
+  #Установка временной зоны Европа/Москва    
+  - name: Set up timezone
+    timezone:
+      name: "Europe/Moscow"
+  
+  #Запуск службы Chrony, добавление её в автозагрузку
+  - name: enable chrony
+    service:
+      name: chronyd
+      state: restarted
+      enabled: true
+  
+  #Копирование файла /etc/hosts c правами root:root 0644
+  - name: change /etc/hosts
+    ansible.builtin.copy:
+      src: hosts
+      dest: /etc/hosts
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Disable ipv6
+    ansible.posix.sysctl:
+      name: '{{ item.name }}'
+      value: '{{ item.value }}'
+      state: present
+    loop:
+      - {"name": "net.ipv6.conf.all.disable_ipv6", "value": "1"}
+      - {"name": "net.ipv6.conf.default.disable_ipv6", "value": "1"}
+      - {"name": "net.ipv6.conf.lo.disable_ipv6", "value": "0"}
+
+
+- name: set up server
+  hosts: server
+  become: yes
+
+
+  tasks:
+  
+  - name: install base tools
+    ansible.builtin.package:
+      name:
+        - ipa-server
+        - freeipa-server 
+        - freeipa-server-dns 
+        - freeipa-client
+      state: present
+      update_cache: true
+
+  - name: configure ipa-server
+    shell: ipa-server-install -p otus2022 -a otus2022 -n otus.lan -r OTUS.LAN --hostname=ipa.otus.lan  --netbios-name=OTUS -N -U --skip-mem-check 
+
+
+- name: set up client
+  hosts: clients
+  become: yes
+
+
+  tasks:
+  
+  #Установка клиента Freeipa
+  - name: install module ipa-client
+    ansible.builtin.package:
+      name:
+        - freeipa-client
+      state: present
+      update_cache: true
+  
+  #Запуск скрипта добавления хоста к серверу
+  - name: add host to ipa-server
+    shell: echo -e "yes\nyes" | ipa-client-install --mkhomedir --domain=OTUS.LAN --server=ipa.otus.lan --no-ntp -p admin -w otus2022

@@ -11,4 +11,8 @@
 01/simple/
 04/asterisk
 .venv
-
+*.tfvars
+*.tfstate
+.terraform*
+*.tfstate*
+*/advanced

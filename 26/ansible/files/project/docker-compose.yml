@@ -1,0 +1,79 @@
+version: '3.1'
+
+services:
+
+  wordpress:
+    image: wordpress:php8.1-fpm-alpine
+    container_name: wordpress
+    restart: unless-stopped
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: $MYSQL_USER
+      WORDPRESS_DB_PASSWORD: $MYSQL_PASSWORD
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wordpress:/var/www/html
+
+    networks:
+        - app-network
+        - db-network
+  
+  flaskapp:
+    image: flaskapp
+    build: ./docker/flask
+    container_name: flaskapp
+    restart: unless-stopped
+    networks:
+        - app-network
+  
+  nodeapp:
+    image: nodeapp
+    build: ./docker/nodejs
+    container_name: nodeapp
+    restart: unless-stopped
+    networks:
+        - app-network
+    ports:
+      - "3000:3000"
+
+  db:
+    image: mysql:8.0
+    container_name: db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: $MYSQL_USER
+      MYSQL_PASSWORD: $MYSQL_PASSWORD
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db:/var/lib/mysql
+    networks:
+      - db-network
+
+  webserver:
+    depends_on:
+      - wordpress
+    container_name: webserver
+    image: docker.angie.software/angie:1.5.2-alpine
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    volumes:
+      - wordpress:/var/www/html
+      - ./nginx-conf:/etc/angie/http.d/
+    networks:
+      - app-network
+
+
+
+volumes:
+  wordpress:
+  db:
+
+
+networks:
+  app-network:
+    driver: bridge
+  db-network:
+    driver: bridge

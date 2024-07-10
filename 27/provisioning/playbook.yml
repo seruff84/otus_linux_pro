@@ -1,0 +1,140 @@
+---
+# code: language=ansible
+- hosts: all
+  user: root
+  become: true
+  become_user: root
+  roles:
+    - mysql
+
+
+- hosts: all
+  user: root
+  become: true
+  become_user: root
+  tasks:
+  - name: Create user root with password, all database 
+    community.mysql.mysql_user:
+      state: present
+      name: 'root'
+      host: '%'
+      password: '1'
+      priv:
+        '*.*': 'ALL'
+      login_unix_socket: "{% if ansible_os_family in ['RedHat','Rocky'] %}/var/lib/mysql/mysql.sock{% else %}/var/run/mysqld/mysqld.sock{% endif %}"
+
+  - name: Configure master
+    block:
+    - name: Copy db dump
+      ansible.builtin.copy:
+        src: bet.dmp
+        dest: /tmp/bet.dmp
+      register: result
+
+      
+    - name: Restore database ignoring errors
+      community.mysql.mysql_db:
+        name: bet
+        state: import
+        target: /tmp/bet.dmp
+        force: true
+        login_unix_socket: "{% if ansible_os_family in ['RedHat','Rocky'] %}/var/lib/mysql/mysql.sock{% else %}/var/run/mysqld/mysqld.sock{% endif %}"
+        
+    - name: Create user with password, all database privileges and 'WITH GRANT OPTION' in bet
+      community.mysql.mysql_user:
+        state: present
+        name: 'repl'
+        host: '%'
+        password: '!OtusLinux2018'
+        priv:
+          '*.*': 'REPLICATION SLAVE'
+        login_unix_socket: "{% if ansible_os_family in ['RedHat','Rocky'] %}/var/lib/mysql/mysql.sock{% else %}/var/run/mysqld/mysqld.sock{% endif %}"
+    
+      
+    when: 'server_id == 1'
+
+
+  - name: Simple  query to  db
+    community.mysql.mysql_query:
+      query:
+        - SHOW MASTER STATUS; 
+      login_unix_socket: "{% if ansible_os_family in ['RedHat','Rocky'] %}/var/lib/mysql/mysql.sock{% else %}/var/run/mysqld/mysqld.sock{% endif %}"
+    register: result
+    when: 'server_id == 1'
+
+  - name: debug
+    debug: 
+      var: result
+    when: 'server_id == 1'
+
+  - name: Set bilog info
+    ansible.builtin.set_fact:
+      binlog_file: "{{result.query_result[0][0].File}}"
+      binlog_pos: "{{result.query_result[0][0].Position}}"
+    when: 'server_id == 1'
+
+  - name: Configure slave
+    block:
+    
+    # - name: Dump db 
+    #   ansible.builtin.shell: >
+    #     mysqldump -h 10.0.26.101 --all-databases --triggers --routines --events --source-data --ignore-table=bet.events_on_demand --ignore-table=bet.v_same_event > /tmp/master.sql
+  
+    - name: Dump db 
+      ansible.builtin.shell: >
+        mysqldump -h 10.0.26.101  bet --ignore-table=bet.events_on_demand --ignore-table=bet.v_same_event > /tmp/master.sql
+
+    - name: Copy 05-binlog.cnf cfg
+      ansible.builtin.copy:
+        src: 05-binlog.cnf
+        dest: /etc/mysql/mysql.conf.d/05-binlog.cnf
+      register: result
+      notify: Restart mysql 
+
+    - meta: flush_handlers
+
+    - set_fact:
+        binlog_file: "{{ hostvars['mysql1']['binlog_file'] }}"
+        binlog_pos: "{{ hostvars['mysql1']['binlog_pos'] }}"
+
+
+    # - name: Make sure GLOBAL.GTID_PURGED is not in the  dump
+    #   ansible.builtin.lineinfile:
+    #     path: /tmp/master.sql
+    #     state: absent
+    #     regexp: '^SET @@GLOBAL.GTID_PURGED.*;'
+
+
+    - name: Simple  query to  db
+      community.mysql.mysql_query:
+        query:
+          - STOP SLAVE;
+        login_unix_socket: "{% if ansible_os_family in ['RedHat','Rocky'] %}/var/lib/mysql/mysql.sock{% else %}/var/run/mysqld/mysqld.sock{% endif %}"
+
+    - name: Restore database ignoring errors
+      community.mysql.mysql_db:
+        name: bet
+        state: import
+        target: /tmp/master.sql
+        force: true
+        login_unix_socket: "{% if ansible_os_family in ['RedHat','Rocky'] %}/var/lib/mysql/mysql.sock{% else %}/var/run/mysqld/mysqld.sock{% endif %}"
+
+
+    - name: Simple  query to  db
+      community.mysql.mysql_query:
+        query:
+          - STOP SLAVE;
+         # - SOURCE '/tmp/master.sql';
+          - CHANGE MASTER TO MASTER_HOST = "10.0.26.101", MASTER_PORT = 3306, MASTER_USER = "repl", MASTER_PASSWORD = "!OtusLinux2018", SOURCE_LOG_FILE="{{ binlog_file }}",SOURCE_LOG_POS={{ binlog_pos }};
+          #MASTER_AUTO_POSITION = 1;
+          - START SLAVE;
+        login_unix_socket: "{% if ansible_os_family in ['RedHat','Rocky'] %}/var/lib/mysql/mysql.sock{% else %}/var/run/mysqld/mysqld.sock{% endif %}"
+
+
+    when: 'server_id > 1'
+
+  handlers:
+  - name: Restart mysql 
+    ansible.builtin.service:
+      name: mysql
+      state: restarted

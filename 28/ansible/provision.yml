@@ -1,0 +1,43 @@
+- name: Подготовка серверов
+  hosts: all
+  become: yes
+  tasks:
+  - name: install components
+    ansible.builtin.package:
+      name:
+        - vim 
+        - telnet
+      state: present
+      update_cache: yes
+
+
+- name: Установка postgres14
+  hosts: nodes
+  become: yes
+  tasks:
+  - name: install postgres14
+    ansible.builtin.package:
+      name:
+        - postgresql
+        - postgresql-contrib
+      state: present
+      update_cache: yes
+
+  - name: enable and start service
+    ansible.builtin.service:
+      name: postgresql
+      state: started
+      enabled: true
+
+
+- name: set up replication
+  hosts: node1,node2
+  become: yes
+  roles:
+   - postgres_replication
+
+- name: install barman
+  hosts: node1,barman
+  become: yes
+  roles:
+   - install_barman

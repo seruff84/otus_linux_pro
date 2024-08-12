@@ -1,0 +1,27 @@
+  # code: language=ansible
+- block: 
+  - name: OS | install components | apt
+    ansible.builtin.package:
+      name:
+        - curl
+        - ca-certificates
+      state: present
+      update_cache: yes
+
+  - name: OS | angie repo | apt key
+    ansible.builtin.get_url:
+      url: https://angie.software/keys/angie-signing.gpg
+      dest: /etc/apt/trusted.gpg.d/angie-signing.gpg
+
+  - name: OS | angie repo | apt source
+    ansible.builtin.apt_repository:
+      repo: "deb https://download.angie.software/angie/{{ansible_distribution | lower }}/{{ ansible_distribution_version }} {{ ansible_distribution_release }} main"
+      state: present
+      filename: angie
+
+  - name: OS | install components | apt
+    ansible.builtin.package:
+      name:
+        - angie
+      state: present
+      update_cache: yes

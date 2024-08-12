@@ -1,0 +1,17 @@
+---
+# tasks file for install_postgrs
+
+- name: includ  {{ ansible_distribution}} specific tasks
+  ansible.builtin.include_tasks:
+    file: '{{ ansible_distribution_file_variety }}.yml'
+
+- name: includ  pgtune tasks
+  ansible.builtin.include_tasks:
+    file: 'pgtune.yml'
+
+- name: PostgreSQL | Create replicator user | All
+  become_user: postgres
+  postgresql_user:
+    name: 'postgres-exp'
+    password: 'postgres-exp'
+    role_attr_flags: SUPERUSER

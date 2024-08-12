@@ -1,0 +1,71 @@
+   # code: language=ansible
+- block:
+  - name: App | Install pakage | apt
+    apt:
+      name:
+        - python3-pip
+        - acl
+      state: present
+      update_cache: true
+    when: 'inventory_hostname in groups["app"]'
+
+  - name: App | Create a user '{{ gunicorn_user }}' with a home directory
+    ansible.builtin.user:
+      name: "{{ gunicorn_user }}"
+      shell: /bin/bash
+      create_home: true
+      password: "!"
+
+  - name: App | clone branch | git
+    ansible.builtin.git:
+      repo: "{{ app_git_repo }}"
+      dest: "{{ app_base_path }}"
+    become_user: "{{ gunicorn_user }}"
+
+  - name: App | Install specified python requirements | pip
+    ansible.builtin.pip:
+      requirements: "{{ app_base_path }}/requirements.txt"
+    become_user: "{{ gunicorn_user }}"
+
+  - name: Gunicorn | Install gunicorn | pip
+    ansible.builtin.pip:
+      name: "gunicorn"
+    become_user: "{{ gunicorn_user }}"
+
+  - name: Gunicorn | Create gunicorn service | systemd
+    ansible.builtin.template:
+      src: gunicorn.services.j2
+      dest: "/etc/systemd/system/gunicorn.service"
+      owner: root
+      group: root
+      mode: '0600'
+    notify: Restart gunicorn
+
+  - name: Gunicorn | Create gunicorn socket | systemd
+    ansible.builtin.template:
+      src: gunicorn.socket.j2
+      dest: "/etc/systemd/system/gunicorn.socket"
+      owner: root
+      group: root
+      mode: '0600'
+    notify: Restart gunicorn
+
+  - name: App | Create settings.py  | config
+    ansible.builtin.template:
+      src: settings.py.j2
+      dest: "{{app_settings_path}}"
+      owner: "{{ gunicorn_user }}"
+      group: "{{ gunicorn_user }}"
+      mode: '0600'
+    notify: Restart gunicorn
+
+  - name: Enable service gunicorn and ensure it is not masked
+    ansible.builtin.systemd_service:
+      name: "{{ item }}"
+      enabled: true
+      masked: no
+    loop:
+      - gunicorn.service
+      - gunicorn.socket
+      
+  when: 'inventory_hostname in groups["app"]'

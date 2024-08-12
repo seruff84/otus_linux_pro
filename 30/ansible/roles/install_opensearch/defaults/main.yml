@@ -1,0 +1,4 @@
+---
+# defaults file for install_opensearch
+opensearch_admin_pass: 'kbp9cJVr#2Jb'
+domain_name : 'app.local'

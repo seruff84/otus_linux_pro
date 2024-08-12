@@ -1,0 +1,41 @@
+# code: language=ansible
+- name: Copy Dashbords
+  ansible.builtin.copy:
+    src: "dashboards"
+    dest: "{{ grafana_base_folder }}"
+    owner: root
+    group: root
+  notify: Restart Grafana
+
+- name: Configure Grafana | setup dashboards config
+  ansible.builtin.template:
+    src: dashboards.yaml.j2
+    dest: /etc/grafana/provisioning/dashboards/dashboards.yaml
+    owner: root
+    group: root
+  notify: Restart Grafana
+
+- name: Configure Grafana | setup dashboards config
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/grafana/provisioning/datasources/{{ item }}"
+    owner: root
+    group: root
+  loop:
+    - 'datasource_elasticsearch.yaml'
+    - 'datasource_prometheus.yaml'
+  notify: Restart Grafana
+
+- name: Uncoment admin credentials
+  ansible.builtin.lineinfile:
+    path: '/etc/grafana/grafana.ini'
+    regexp: '^;({{ item }} .*)$'
+    line: \1
+    backrefs: true
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - 'admin_user'
+    - 'admin_password'
+  notify: Restart Grafana

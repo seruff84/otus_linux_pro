@@ -1,0 +1,28 @@
+# code: language=ansible
+---
+- block:
+    - name: PostgrSQL | Install all the required dependencies | dnf
+      ansible.builtin.dnf:
+        name: "ca-certificates, python-pycurl, python3-libselinux, glibc-common, python*-psycopg2"
+        state: present
+
+    - name: Import a key from a url
+      ansible.builtin.rpm_key:
+        state: present
+        key: "{{ postgresql_rpm_repository_gpgkey }}"
+
+    - name: PostgreSQL | Add yum Repository | dnf
+      ansible.builtin.dnf:
+        state: present
+        name: "{{ postgresql_dnf_repository_baseurl }}"
+
+    - name: PostgreSQL | Install PostgreSQL | dnf
+      ansible.builtin.dnf:
+        name: "postgresql{{ postgresql_version }}-server,postgresql{{ postgresql_version }},postgresql{{ postgresql_version}}-contrib"
+        state: present
+
+    - name: enable and start service
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true

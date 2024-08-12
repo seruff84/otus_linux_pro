@@ -1,0 +1,90 @@
+---
+# tasks file for install_opensearch
+# code: language=ansible
+
+- name: Tune the system settings
+  ansible.builtin.import_tasks: tune.yml
+
+# - block: 
+#   - name: Install opensearch | Install perequest| apt
+#     ansible.builtin.package:
+#       name:
+#         - curl
+#         - ca-certificates
+#         - gnupg2
+#         - lsb-release
+#       state: present
+#       update_cache: true
+
+#   - name: Install opensearch | add gpg key
+#     ansible.builtin.apt_key:
+#       url: https://artifacts.opensearch.org/publickeys/opensearch.pgp
+#       state: present
+
+#   - name: Install opensearch | apt source
+#     ansible.builtin.apt_repository:
+#       repo: "deb https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
+#       state: present
+#       filename: opensearch
+
+#   - name: Install opensearch | apt
+#     ansible.builtin.package:
+#       name:
+#         - opensearch
+#       state: present
+#       update_cache: true
+#     environment:
+#       OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_pass }}"
+
+#   - name: Start opensearch
+#     ansible.builtin.systemd_service:
+#       name: opensearch
+#       state: started
+#       enabled: true
+#       masked: false
+- block: 
+  - name: Install elasticsearch | Install perequest| apt
+    ansible.builtin.package:
+      name:
+        - curl
+        - ca-certificates
+        - gnupg2
+        - lsb-release
+        - openjdk-11-jre
+      state: present
+      update_cache: true
+
+  - name: Install elasticsearch | add gpg key
+    ansible.builtin.apt_key:
+      url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+      state: present
+
+  - name: Install elasticsearch | apt source
+    ansible.builtin.apt_repository:
+      repo: "deb https://artifacts.elastic.co/packages/7.x/apt stable main"
+      state: present
+      filename: elasticsearch
+
+  - name: Install elasticsearch | apt
+    ansible.builtin.package:
+      name:
+        - elasticsearch
+      state: present
+      update_cache: true
+    environment:
+      ELASTIC_PASSWORD: "{{ opensearch_admin_pass }}"
+
+  - name: Configure elasticsearch
+    ansible.builtin.template:
+      src: elasticsearch.yml.j2
+      dest: /etc/elasticsearch/elasticsearch.yml
+      owner: root
+      group: elasticsearch
+    notify: Restart elasticsearch
+
+  - name: Start elasticsearch
+    ansible.builtin.systemd_service:
+      name: elasticsearch
+      state: started
+      enabled: true
+      masked: false

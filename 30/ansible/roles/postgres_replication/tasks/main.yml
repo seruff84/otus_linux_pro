@@ -1,0 +1,48 @@
+# code: language=ansible
+---
+# tasks file for postgres_replication
+
+- name: PostgreSQL | Create replicator user | All
+  become_user: postgres
+  postgresql_user:
+    name: '{{ replication_user }}'
+    password: '{{ replication_password }}'
+    role_attr_flags: REPLICATION 
+  ignore_errors: true
+
+- name: PostgreSQL | Create common config from template | All
+  template:
+    src: 91-common_settings.conf.j2
+    dest: "{{ postgresql_config_location }}/conf.d/91-common_settings.conf"
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  notify: restart postgresql
+
+# - name: PostgreSQL | Create pg_hba.conf from template | All
+#   template:
+#     src: pg_hba.conf.j2
+#     dest: "{{ postgresql_config_location }}/pg_hba.conf"
+#     owner: postgres
+#     group: postgres
+#     mode: '0600'
+#   notify: restart postgresql
+
+- name: PostgreSQL | Update pg_hba for allow app servers | cluster
+  ansible.builtin.lineinfile:
+    dest: "{{ postgresql_config_location }}/pg_hba.conf"
+    line: "host    replication {{ replication_user }}    {{ item }}/32        scram-sha-256"
+  loop: "{{ pg_ips }}" 
+  notify: Reload postgresql
+
+- name: PostgreSQL | includ master tasks
+  ansible.builtin.include_tasks:
+    file: 'master.yml'
+
+- name: PostgreSQL | Restart service if need | All
+  ansible.builtin.meta: flush_handlers
+
+- name: PostgreSQL | includ master tasks
+  ansible.builtin.include_tasks:
+    file: 'slave.yml'
+

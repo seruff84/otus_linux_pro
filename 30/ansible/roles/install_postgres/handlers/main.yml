@@ -1,0 +1,6 @@
+---
+# handlers file for install_postgrs
+  - name: restart postgresql
+    ansible.builtin.service:
+      name: postgresql
+      state: restarted

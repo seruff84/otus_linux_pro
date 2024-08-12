@@ -1,0 +1,39 @@
+[servers]
+db01 ansible_host=192.168.57.11 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/db01/virtualbox/private_key listen_ip=192.168.57.11
+db02 ansible_host=192.168.57.12 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/db02/virtualbox/private_key listen_ip=192.168.57.12
+db03 ansible_host=192.168.57.13 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/db03/virtualbox/private_key listen_ip=192.168.57.13
+app01 ansible_host=192.168.57.14 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/app01/virtualbox/private_key listen_ip=192.168.57.14
+app02 ansible_host=192.168.57.15 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/app02/virtualbox/private_key listen_ip=192.168.57.15
+web01 ansible_host=192.168.57.16 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/web01/virtualbox/private_key listen_ip=192.168.57.16
+web02 ansible_host=192.168.57.17 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/web02/virtualbox/private_key listen_ip=192.168.57.17
+monitor ansible_host=192.168.57.18 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/monitor/virtualbox/private_key listen_ip=192.168.57.18 
+[pg_master]
+db01
+[pg_slaves]
+db02
+[pg_other]
+
+[postgres:children]
+pg_master
+pg_slaves
+pg_other
+
+[app]
+app01
+app02
+
+[front]
+web01
+web02
+
+[monitoring]
+monitor
+
+[whole_application:children]
+postgres
+app
+front
+
+
+[front:vars]
+filebeat_modeule_nginx=true

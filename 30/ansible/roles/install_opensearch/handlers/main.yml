@@ -1,0 +1,7 @@
+---
+# handlers file for install_elasticsearch
+
+- name: Restart elasticsearch
+  ansible.builtin.systemd_service:
+    name: elasticsearch
+    state: restarted

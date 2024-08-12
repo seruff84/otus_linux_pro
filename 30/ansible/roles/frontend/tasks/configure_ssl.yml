@@ -1,0 +1,40 @@
+# code: language=ansible
+- block:
+  - name: angie | greate ssl dir
+    ansible.builtin.file:
+      path: "{{ angie_ssl_dir }}"
+      state: directory
+      recurse: yes
+      owner: root
+      group: root
+
+  # - name: SSL | SSLGenerate Diffie-Hellman parameters with the default size (4096 bits) | crt
+  #   community.crypto.openssl_dhparam:
+  #     path: "{{ angie_ssl_dhparam }}"
+  #   notify: Restart Angie
+
+  - name: OS | angie repo | apt key
+    ansible.builtin.get_url:
+      url: https://ssl-config.mozilla.org/ffdhe2048.txt
+      dest: "{{ angie_ssl_dhparam }}"
+    notify: Restart Angie
+
+  - name: SSL | Create private key (RSA, 4096 bits) | key
+    community.crypto.openssl_privatekey:
+      path: "{{ angie_ssl_certificate_key }}"
+
+  - name: SSL | Create certificate signing request (CSR) for self-signed certificate | csr
+    community.crypto.openssl_csr_pipe:
+      privatekey_path: "{{ angie_ssl_certificate_key }}"
+      common_name: "{{ angie_server_name }}"
+      organization_name: Ansible, Inc.
+    register: csr
+    notify: Restart Angie
+
+  - name: SSL | Create self-signed certificate from CSR | crt
+    community.crypto.x509_certificate:
+      path: "{{ angie_ssl_certificate }}"
+      csr_content: "{{ csr.csr }}"
+      privatekey_path: "{{ angie_ssl_certificate_key }}"
+      provider: selfsigned
+    notify: Restart Angie

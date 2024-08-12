@@ -1,0 +1,11 @@
+- name: Prepare app
+  hosts: web02
+  become: true
+  become_user: 'root'
+
+  tasks:
+
+
+    - debug:
+        var: hostvars['monitor']['listen_ip']
+        # msg: "{% for service in services %}  {% for ip  in service.ips %} {{ip}}:{{service.port}} {% endfor %}{% endfor %}"

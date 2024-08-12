@@ -1,0 +1,22 @@
+# code: language=ansible
+---
+# tasks file for frontend
+
+- name: Angie | install server | apt
+  ansible.builtin.include_tasks:
+    file: 'install_angie.yml'
+
+- name: Angie | configure ssl | ssl
+  ansible.builtin.include_tasks:
+    file: 'configure_ssl.yml'
+
+
+- name: Angie | Configure server | cfg
+  ansible.builtin.template:
+    src: default.conf.j2
+    dest: "/etc/angie/http.d/default.conf"
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Restart Angie
+

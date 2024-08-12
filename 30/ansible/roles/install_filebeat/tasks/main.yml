@@ -1,0 +1,43 @@
+---
+# tasks file for install_filebeat
+- name: Install filebeat | Download pakage
+  ansible.builtin.get_url:
+    url: "{{ filebeat_url }}"
+    dest: "{{ filebeat_distr_dest }}"
+    mode: '0644'
+
+- name: "Install filebeat | Install a package {{ filebeat_distr }}"
+  ansible.builtin.apt:
+    deb: "{{ filebeat_distr_dest }}"
+
+- name: Install filebeat | setup filebeat config
+  ansible.builtin.template:
+    src: "filebeat.yml.j2"
+    dest: "/etc/filebeat/filebeat.yml"
+    owner: root
+    group: root
+    mode: '0600'
+  when: 'filebeat_default_input'
+  notify: Restart filebeat
+
+- block:
+  - name: Install filebeat| Enable nginx modul
+    ansible.builtin.shell: filebeat modules enable nginx
+
+  - name: Install filebeat | setup filebeat config
+    ansible.builtin.template:
+      src: "nginx.yml.j2"
+      dest: "/etc/filebeat/modules.d/nginx.yml"
+      owner: root
+      group: root
+      mode: '0644'
+
+  when: 'filebeat_modeule_nginx'
+  notify: Restart filebeat
+
+- name: Install filebeat | Start filebeat | systemctl
+  ansible.builtin.systemd_service:
+    name: filebeat
+    state: started
+    enabled: true
+    masked: false

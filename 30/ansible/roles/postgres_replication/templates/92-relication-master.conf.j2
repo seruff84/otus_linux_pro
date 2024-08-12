@@ -1,0 +1,10 @@
+
+hot_standby = on
+hot_standby_feedback = on
+
+wal_level = replica
+max_wal_senders = 3
+max_replication_slots = 3
+
+cluster_name = '{{postgresql_version}}/{{postgresql_cluster}}'			# added to process titles if nonempty
+stats_temp_directory = '/var/run/postgresql/{{postgresql_version}}-{{postgresql_cluster}}.pg_stat_tmp'

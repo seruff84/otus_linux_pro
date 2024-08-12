@@ -1,0 +1,9 @@
+---
+# defaults file for frontend
+
+frontend_port: 8000
+angie_server_name: 'app.local'
+angie_ssl_dir: '/etc/angie/ssl'
+angie_ssl_certificate: '{{ angie_ssl_dir }}/site.crt'
+angie_ssl_certificate_key: '{{ angie_ssl_dir }}/site.key'
+angie_ssl_dhparam: '{{ angie_ssl_dir }}/dhparam'

@@ -1,0 +1,16 @@
+---
+# vars file for install_prometheus
+
+pg_ips : "{% set IP_ARR=[] %}{% for host in groups['postgres'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+app_ips : "{% set IP_ARR=[] %}{% for host in groups['app'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+web_ips: "{% set IP_ARR=[] %}{% for host in groups['front'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+all_ips: "{{pg_ips + app_ips + web_ips }}"
+
+services:
+  - {'name': 'postgresql', 'ips': '{{pg_ips | list}}', 'port': '{{prometheus_exporter_pg_port}}'}
+  - {'name': 'node', 'ips': '{{all_ips | list}}', 'port': '{{prometheus_exporter_node_port}}'}
+  - {'name': 'angie', 'ips': '{{web_ips | list}}', 'port': '{{prometheus_exporter_angie_port}}'}
+
+
+# - gjango : ["{{app_ips}}","{{prometheus_app_port}}"]
+# - angie : ["{{web_ips}}","{{prometheus_web_port}}"]

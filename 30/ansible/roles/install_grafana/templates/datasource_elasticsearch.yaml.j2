@@ -1,0 +1,37 @@
+{# # Configuration file version
+apiVersion: 1
+datasources:
+  - name: elasticsearch
+    id: 7
+    uid: edu3mkky7fjlsa
+    orgId: 1
+    type: elasticsearch
+    typeName: Elasticsearch
+    typeLogoUrl: public/app/plugins/datasource/elasticsearch/img/elasticsearch.svg
+    access: proxy
+    url: https://localhost:9200
+    basicAuth: true
+    basicAuthUser: admin
+    isDefault: false
+    jsonData:
+      includeFrozen: false
+      maxConcurrentShardRequests: 5
+      oauthPassThru: false
+      sigV4Auth: false
+      timeField: "@timestamp"
+      tlsSkipVerify: true
+    secureJsonData:
+      basicAuthPassword: {{opensearch_admin_pass}}
+    readOnly: false #}
+
+apiVersion: 1
+
+datasources:
+  - name: elasticsearch
+    type: elasticsearch
+    uid: edu3mkky7fjlsa
+    access: proxy
+    url: http://localhost:9200
+    jsonData:
+      timeField: '@timestamp'
+    readOnly: false

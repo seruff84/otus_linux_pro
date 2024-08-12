@@ -1,0 +1,5 @@
+---
+# vars file for postgres_replication
+
+pg_ips : "{% set IP_ARR=[] %}{% for host in groups['postgres'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+master_ip: "{{ hostvars[groups['pg_master'][0]]['listen_ip'] }}"

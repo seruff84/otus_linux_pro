@@ -1,0 +1,12 @@
+listen_addresses = 'localhost, {{listen_ip}}'
+
+timezone = '{{postgresql_timezone}}'
+
+log_directory = 'log' 
+log_filename = 'postgresql-%a.log' 
+log_rotation_age = 1d 
+log_rotation_size = 0 
+log_truncate_on_rotation = on 
+log_timezone = '{{postgresql_timezone}}'
+
+password_encryption = scram-sha-256

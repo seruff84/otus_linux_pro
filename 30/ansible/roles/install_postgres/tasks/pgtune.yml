@@ -1,0 +1,36 @@
+# code: language=ansible
+---
+- block: 
+  - name: pgtun | get settings from api | http 
+    ansible.builtin.uri:
+      url: https://pgtune.sainth.de/api/configuration
+      body: "{{ pgtun_body }}"
+      body_format: json
+      method: POST 
+      return_content: true   
+      headers:
+        Content-Type: "application/json"
+    register: result 
+
+  - ansible.builtin.set_fact:
+      postgresql_conf: "{{ result.content | split('\n') | select()}}"
+
+  # - name: PostgreSQL | Tune postgresql on Ubuntu default cluster
+  #   ansible.builtin.lineinfile:
+  #     regexp: '^{{ (item | split(" = "))[0] }} .*$'
+  #     path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf 
+  #     line: "{{ item }}"
+  #   loop: "{{ postgresql_conf }}"
+  #   when: 'result.status == 200 and result.content is defined and result.content != ""'
+
+  - name: Insert/Update 90-pgtune.conf
+    ansible.builtin.blockinfile:
+      path: "{{ postgresql_config_location }}/conf.d/90-pgtune.conf"
+      # append_newline: true
+      # prepend_newline: true
+      block: "{{ result.content }}"
+      create: true
+    when: 'result.status == 200 and result.content is defined and result.content != ""'
+    notify: restart postgresql
+  when: 'ansible_distribution == "Ubuntu"'
+  

@@ -1,0 +1,8 @@
+[Unit]
+Description=gunicorn socket
+
+[Socket]
+ListenStream=/run/gunicorn.sock
+ListenStream={{ gunicorn_bind_address }}:{{ gunicorn_bind_port }}
+[Install]
+WantedBy=sockets.target

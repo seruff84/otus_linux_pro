@@ -1,0 +1,31 @@
+---
+# defaults file for deploy_app
+
+
+gunicorn_bind_address: '0.0.0.0'
+gunicorn_bind_port: 8000
+gunicorn_app_wsgi: 'blogengine.wsgi'
+gunicorn_user: 'blog_user'
+gunicorn_workers: 5
+
+app_name: 'blogengine'
+app_dir: 'blog_app'
+app_git_repo: https://github.com/seruff84/blog_app.git
+app_base_path: '/home/{{ gunicorn_user }}/{{app_dir}}'
+app_settings_path: '{{app_base_path}}/{{ app_name }}/{{ app_name }}/settings.py'
+
+gunicorn_app_path: '{{ app_base_path }}/{{ app_name }}'
+gunicorn_bin_file: 'python3 -m gunicorn'
+gunicorn_exec_start: "{{ gunicorn_bin_file }} --workers {{ gunicorn_workers }} --bind {{ gunicorn_bind_address }}:{{ gunicorn_bind_port }} {{ gunicorn_app_wsgi }}:application"
+
+postgresql_version: 14
+postgresql_cluster: "main"
+postgresql_conf_dir: /etc/postgresql/{{postgresql_version}}/{{postgresql_cluster}}
+postgresql_db_name: "blog"
+postgresql_db_user: "blog_user"
+postgresql_db_pass: "8avsFjWo%hxmGwImYi"
+postgresql_db_address: "192.168.57.11"
+postgresql_db_port: "5432"
+postgresql_dump_file: "blog.db"
+postgresql_dump_tmp_path: "/tmp/{{ postgresql_dump_file }}"
+postgresql_restore_dump: true

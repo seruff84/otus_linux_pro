@@ -1,0 +1,52 @@
+- name: Configure DB servers
+  hosts: postgres
+  become: true
+
+
+  tasks:
+  - name: "OS | install components | apt"
+    ansible.builtin.package:
+      name:
+        - vim
+        - telnet
+      state: present
+      update_cache: true
+  collections:
+    - prometheus.prometheus
+  roles:
+  - install_postgres
+  - postgres_replication
+  - prometheus.prometheus.postgres_exporter
+
+
+- name: Configure backend server
+  hosts: pg_master,app
+  become: true
+  tasks:
+
+  roles:
+  - deploy_app
+  - prometheus.prometheus.node_exporter
+
+- name: Configure frontend server
+  hosts: front
+  become: true
+  tasks:
+
+  roles:
+  - frontend
+  - prometheus.prometheus.node_exporter
+
+- name: Configure monitoring server
+  hosts: monitoring
+  become: true
+  roles:
+    - install_prometheus
+    - install_grafana
+    - install_opensearch
+
+- name: Configure loging
+  hosts: whole_application
+  become: true
+  roles:
+    - install_filebeat

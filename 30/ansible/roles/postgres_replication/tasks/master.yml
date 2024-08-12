@@ -1,0 +1,51 @@
+  # code: language=ansible
+- block:
+
+  - name: PostgreSQL | select pg_is_in_recovery | Master
+    community.postgresql.postgresql_query:
+      db: postgres
+      query: SELECT pg_is_in_recovery();
+    become_user: postgres
+    register: pg_is_in_recovery
+
+  - name: PostgreSQL | Create trigger file | Slave
+    ansible.builtin.file:
+      path: "{{ postgresql_trigger_file  }}"
+      state: touch
+      owner: postgres
+      group: postgres
+      mode: '0640'
+    when: 'pg_is_in_recovery.query_all_results[0][0].pg_is_in_recovery == true'
+
+  - name: PostgreSQL | Create replication config from template | All
+    ansible.builtin.template:
+      src: 92-relication-master.conf.j2
+      dest: "{{ postgresql_config_location }}/conf.d/92-relication-master.conf"
+      owner: postgres
+      group: postgres
+      mode: '0600'
+    notify: restart postgresql
+
+  - name: PostgreSQL | Create a new database with name {{ postgresql_db_name }} | master
+    community.postgresql.postgresql_db:
+      name: "{{ postgresql_db_name }}"
+    become_user: postgres
+    register: result
+
+  - name: PostgreSQL | Copy dump | master
+    ansible.builtin.copy:
+      src: "{{ postgresql_dump_file }}"
+      dest: "{{postgresql_dump_tmp_path}}"
+      mode: 0640
+      owner: postgres
+    when: 'postgresql_dump_file != "" and restore_dump == true'
+
+  - name: PostgreSQL | Restore the database | master" 
+    community.postgresql.postgresql_db:
+      state: restore
+      name: "{{ postgresql_db_name }}"
+      target: "{{ postgresql_dump_tmp_path }}"
+    become_user: postgres
+    when: 'result.changed and postgresql_dump_file != "" and restore_dump == true'
+  
+  when: 'inventory_hostname in groups["pg_master"]'

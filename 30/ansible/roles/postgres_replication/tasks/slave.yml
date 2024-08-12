@@ -1,0 +1,53 @@
+  # code: language=ansible
+- name: PostgreSQL | select pg_stat_wal_receiver | Slaves
+  postgresql_query:
+    db: postgres
+    query: select * from pg_stat_wal_receiver;
+  become_user: postgres
+  register: pg_stat_wal_receiver
+  when: 'inventory_hostname in groups["pg_slaves"]'
+
+- block:
+  - name: PostgreSQL | stop postgresql-server on host group pg_slaves | Slaves 
+    service: 
+      name: postgresql
+      state: stopped
+
+  - name: PostgreSQL | Remove trigger file if exist | Slave
+    file:
+      path: "{{ postgresql_trigger_file }}"
+      state: absent
+
+  - name: PostgreSQL | Clear out data directory | Slave
+    file:
+      path: "{{ postgresql_data_path }}"
+      state: absent
+
+  - name: PostgreSQL | Create empty data directory | Slave
+    file:
+      path: "{{ postgresql_data_path }}"
+      state: directory
+      owner: postgres
+      group: postgres
+      mode: '0700'
+
+  - name: PostgreSQL | Create base backup | Slave
+    become_user: postgres
+    expect:
+      command: 'pg_basebackup -h {{ master_ip }} -U  {{ replication_user }} -p {{ postgresql_port }} -D "{{ postgresql_data_path }}/" -R -P'
+      responses: 
+        '.*Password*': "{{ replication_password }}"
+
+  - name: PostgreSQL | Create recovery.conf from template | Slave
+    template:
+      src: recovery.conf.j2
+      dest: "{{ postgresql_config_location }}/conf.d/recovery.conf"
+      owner: postgres
+      group: postgres
+      mode: '0600'
+
+  - name: start postgresql-server on node2
+    service: 
+      name: postgresql
+      state: started
+  when: 'inventory_hostname in groups["pg_slaves"] and pg_stat_wal_receiver.rowcount  == 0'

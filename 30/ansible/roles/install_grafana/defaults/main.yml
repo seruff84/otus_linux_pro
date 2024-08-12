@@ -1,0 +1,5 @@
+---
+# defaults file for install_grafana
+opensearch_admin_pass: 'kbp9cJVr#2Jb'
+grafana_base_folder: '/var/lib/grafana'
+grafana_dashboards_path: '{{ grafana_base_folder }}/dashboards'

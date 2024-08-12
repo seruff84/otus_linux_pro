@@ -1,0 +1,10 @@
+# code: language=ansible
+---
+# tasks file for install_grafana
+
+- name: Install Grafana
+  ansible.builtin.import_tasks: install_grafana.yml
+
+- name: Configure_grafana
+  ansible.builtin.import_tasks: configure_grafana.yml
+  

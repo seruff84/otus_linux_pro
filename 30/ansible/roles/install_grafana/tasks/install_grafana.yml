@@ -1,0 +1,47 @@
+# code: language=ansible
+---
+# tasks file for install_grafana
+- name: Install Grafana
+  block:
+    - name: Install Grafana | install components | apt
+      ansible.builtin.package:
+        name:
+          - curl
+          - ca-certificates
+          - acl
+        state: present
+        update_cache: true
+
+    - name: Install Grafana | istall grafana repo gpg key | apt
+      ansible.builtin.apt_key:
+        url: https://apt.grafana.com/gpg.key
+        # dest: /etc/apt/trusted.gpg.d/grafana-signing.gpg
+        state: present
+
+    - name: Install Grafana | Add grafana repo | apt
+      ansible.builtin.apt_repository:
+        repo: "deb https://apt.grafana.com stable main"
+        state: present
+        filename: angie
+
+    - name: Install Grafana | Install grafana | apt
+      ansible.builtin.package:
+        name:
+          - grafana
+        state: present
+        update_cache: true
+      register: result
+
+    - name: Install Grafana | Install grafana opensearch plugin
+      ansible.builtin.shell: grafana-cli plugins install grafana-opensearch-datasource
+      become: true
+      become_user: grafana
+      # when: result.changed
+      notify: Restart Grafana
+
+    - name: Install Grafana | Start grafana | systemctl
+      ansible.builtin.systemd_service:
+        name: grafana-server
+        state: started
+        enabled: true
+        masked: false

@@ -1,0 +1,3 @@
+---
+# vars file for deploy_app
+app_ips  : "{% set IP_ARR=[] %}{% for host in groups['app'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['ansible_host']) %}{% endif %}{% endfor %}{{IP_ARR}}"

@@ -1,0 +1,17 @@
+---
+# defaults file for install_filebeat
+filebeat_version: '8.15.0'
+filebeat_distr_folder: "~"
+filebeat_distr_dest: "{{ filebeat_distr_folder }}/{{ filebeat_distr }}"
+filebeat_distr: "filebeat-{{filebeat_version}}-amd64.deb"
+filebeat_url: "https://artifacts.elastic.co/downloads/beats/filebeat/{{ filebeat_distr }}"
+
+filebeat_default_input: true
+filebeat_modeule_nginx: false
+
+filebeat_nginx_access_log: '/var/log/angie/access.log'
+filebeat_nginx_error_log: '/var/log/angie/error.log*'
+
+elasticsearch_port: "9200"
+elasticsearch_address: "{{ hostvars['monitor']['listen_ip'] }}"
+elasticsearch_protocol: http # http or https

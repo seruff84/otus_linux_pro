@@ -1,0 +1,10 @@
+---
+# tasks file for deploy_app
+- name: PostgreSQL | includ db tasks
+  ansible.builtin.include_tasks:
+    file: 'database_tasks.yml'
+    
+- name: APP | includ app-server tasks
+  ansible.builtin.include_tasks:
+    file: 'app-server_tasks.yml'
+

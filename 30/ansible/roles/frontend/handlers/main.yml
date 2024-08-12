@@ -1,0 +1,6 @@
+---
+# handlers file for frontend
+- name: Restart Angie
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: angie

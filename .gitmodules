@@ -1,0 +1,3 @@
+[submodule "30/app"]
+	path = 30/app
+	url = https://github.com/seruff84/blog_app.git

@@ -1,0 +1,7 @@
+---
+# vars file for install_barman
+postgresql_master_ip: "{{ hostvars[groups['pg_master'][0]]['listen_ip'] }}"
+postgresql_master_name: "{{ hostvars[groups['pg_master'][0]]['inventory_hostname'] }}"
+
+barman_ip: "{{ hostvars[groups['backup'][0]]['listen_ip'] }}"
+barman_name: "{{ hostvars[groups['backup'][0]]['inventory_hostname'] }}"

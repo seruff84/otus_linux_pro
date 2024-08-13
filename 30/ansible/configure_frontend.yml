@@ -1,0 +1,6 @@
+- name: Configure frontend server
+  hosts: front
+  become: true
+  roles:
+  - frontend
+  - prometheus.prometheus.node_exporter

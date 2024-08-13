@@ -1,12 +1,13 @@
   # code: language=ansible
 - block: 
+
   - name: OS | install components | apt
     ansible.builtin.package:
       name:
         - curl
         - ca-certificates
       state: present
-      update_cache: yes
+      update_cache: true
 
   - name: OS | angie repo | apt key
     ansible.builtin.get_url:
@@ -15,7 +16,8 @@
 
   - name: OS | angie repo | apt source
     ansible.builtin.apt_repository:
-      repo: "deb https://download.angie.software/angie/{{ansible_distribution | lower }}/{{ ansible_distribution_version }} {{ ansible_distribution_release }} main"
+      repo: "deb https://download.angie.software/angie/{{ ansible_distribution |
+       lower }}/{{ ansible_distribution_version }} {{ ansible_distribution_release }} main"
       state: present
       filename: angie
 
@@ -24,4 +26,4 @@
       name:
         - angie
       state: present
-      update_cache: yes
+      update_cache: true

@@ -1,0 +1,8 @@
+- name: Configure backend server
+  hosts: pg_master,app
+  become: true
+  tasks:
+
+  roles:
+  - deploy_app
+  - prometheus.prometheus.node_exporter

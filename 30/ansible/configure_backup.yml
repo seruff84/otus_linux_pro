@@ -1,0 +1,8 @@
+
+- name: Configure  Backup
+  hosts: backup, postgres
+  become: true
+  roles:
+    - install_barman
+
+

@@ -1,0 +1,43 @@
+- name: Configure firewall server
+  hosts: all
+  become: true
+  vars:
+    pg_ips : "{% set IP_ARR=[] %}{% for host in groups['postgres'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+    app_ips : "{% set IP_ARR=[] %}{% for host in groups['app'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+    front_ips: "{% set IP_ARR=[] %}{% for host in groups['front'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+    monitor_ips: "{% set IP_ARR=[] %}{% for host in groups['monitoring'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+    iptables_rule_file: "/etc/iptables/rules.v4"
+  tasks:
+
+    - name: Set fact net
+      ansible.builtin.set_fact:
+        net: "{{ '^' + (listen_ip | split('.'))[0:3] | join('\\.') + '\\..*$' }}"
+
+    - name: Set fact local_int
+      ansible.builtin.set_fact:
+        local_int: "{{ ansible_interfaces | map('regex_replace', '^', 'ansible_') | map('extract', vars) | selectattr('ipv4.address', 'match', net) | map(attribute='device') | first }}"
+        nat_int: "{{ ansible_default_ipv4.interface }}"
+
+    - name: "APT | install iptables-persistent"
+      ansible.builtin.package:
+        name:
+          - iptables-persistent
+        state: present
+        update_cache: true
+
+    - name: Firewall | add rules
+      ansible.builtin.template:
+        src: "rules.v4.j2"
+        dest: "{{ iptables_rule_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restore firewall state from a file
+
+  handlers:
+    - name: Restore firewall state from a file
+      community.general.iptables_state:
+        state: restored
+        path: "{{ iptables_rule_file }}"
+      async: "{{ ansible_timeout }}"
+      poll: 0

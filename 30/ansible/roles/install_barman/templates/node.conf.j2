@@ -1,0 +1,21 @@
+[{{postgresql_master_name}}]
+#Описание задания
+description = "backup {{postgresql_master_name}}"
+#Команда подключения к хосту {{postgresql_master_name}}
+ssh_command = ssh postgres@{{postgresql_master_ip}}
+#Команда для подключения к postgres-серверу
+conninfo = host={{postgresql_master_ip}} user={{barman_user}} port=5432 dbname=postgres
+retention_policy_mode = auto
+retention_policy = RECOVERY WINDOW OF 7 days
+wal_retention_policy = main
+streaming_archiver=on
+#Указание префикса, который будет использоваться как $PATH на хосте {{postgresql_master_name}}
+path_prefix = /usr/pgsql-14/bin/
+#настройки слота
+create_slot = auto
+slot_name = {{postgresql_master_name}}
+#Команда для потоковой передачи от postgres-сервера
+streaming_conninfo = host={{postgresql_master_ip}} user={{barman_user}}
+#Тип выполняемого бекапа
+backup_method = postgres
+archiver = off

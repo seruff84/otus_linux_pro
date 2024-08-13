@@ -1,0 +1,13 @@
+- name: Configure monitoring server
+  hosts: monitoring
+  become: true
+  roles:
+    - install_prometheus
+    - install_grafana
+    - install_opensearch
+
+- name: Configure loging
+  hosts: whole_application
+  become: true
+  roles:
+    - install_filebeat

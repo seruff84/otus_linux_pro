@@ -10,6 +10,21 @@
   ansible.builtin.include_tasks:
     file: 'configure_ssl.yml'
 
+- name: Set cidr fact
+  ansible.builtin.set_fact:
+    cidr: "{{ cidr | default([]) +
+              [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
+  loop: "{{ ansible_interfaces |
+              map('extract', ansible_facts, 'ipv4') |
+              select('defined') | list }}"
+
+- name: Set nginx_allwed_net fact
+  ansible.builtin.set_fact:
+    nginx_allowed_net: "{{ subnet }}"
+  when: listen_ip | ipaddr(subnet)
+  loop: "{{ cidr }}"
+  loop_control:
+    loop_var: subnet
 
 - name: Angie | Configure server | cfg
   ansible.builtin.template:

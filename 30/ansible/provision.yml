@@ -1,52 +1,17 @@
-- name: Configure DB servers
-  hosts: postgres
-  become: true
+- name: Include a play configure_db_servers
+  ansible.builtin.import_playbook: configure_db_servers.yml
 
+- name: Include a play configure_backend
+  ansible.builtin.import_playbook: configure_backend.yml
 
-  tasks:
-  - name: "OS | install components | apt"
-    ansible.builtin.package:
-      name:
-        - vim
-        - telnet
-      state: present
-      update_cache: true
-  collections:
-    - prometheus.prometheus
-  roles:
-  - install_postgres
-  - postgres_replication
-  - prometheus.prometheus.postgres_exporter
+- name: Include a play configure_frontend
+  ansible.builtin.import_playbook: configure_frontend.yml
 
+- name: Include a play configure_monitoring
+  ansible.builtin.import_playbook: configure_monitoring.yml
 
-- name: Configure backend server
-  hosts: pg_master,app
-  become: true
-  tasks:
+- name: Include a play configure_firewall
+  ansible.builtin.import_playbook: configure_firewall.yml
 
-  roles:
-  - deploy_app
-  - prometheus.prometheus.node_exporter
-
-- name: Configure frontend server
-  hosts: front
-  become: true
-  tasks:
-
-  roles:
-  - frontend
-  - prometheus.prometheus.node_exporter
-
-- name: Configure monitoring server
-  hosts: monitoring
-  become: true
-  roles:
-    - install_prometheus
-    - install_grafana
-    - install_opensearch
-
-- name: Configure loging
-  hosts: whole_application
-  become: true
-  roles:
-    - install_filebeat
+- name: Include a play configure_backup
+  ansible.builtin.import_playbook: configure_backup.yml

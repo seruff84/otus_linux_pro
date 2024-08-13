@@ -18,6 +18,9 @@ server {
     }
     location =/p8s {
             prometheus all;
+            allow {{ nginx_allowed_net }};
+            deny all;
+
     }
 }
 

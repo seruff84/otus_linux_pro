@@ -4,8 +4,25 @@
   become_user: 'root'
 
   tasks:
+    - name: Set cidr fact
+      ansible.builtin.set_fact:
+        cidr: "{{ cidr | default([]) +
+                  [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
+      loop: "{{ ansible_interfaces |
+                  map('extract', ansible_facts, 'ipv4') |
+                  select('defined') | list }}"
+    - name: Set ip_in_subnet fact
+      ansible.builtin.set_fact:
+        ip_in_subnet: "{{ subnet }}"
+      when: listen_ip | ipaddr(subnet)
+      loop: "{{ cidr }}"
+      loop_control:
+        loop_var: subnet
 
-
+    # - name: Set nginx_allwed_net fact
+    #   ansible.builtin.set_fact:
+    #     nginx_allowed_net: "{{cidr.network}}"              
     - debug:
-        var: hostvars['monitor']['listen_ip']
+        msg: "{{ip_in_subnet}}"
+        #var: hostvars['monitor']['listen_ip']
         # msg: "{% for service in services %}  {% for ip  in service.ips %} {{ip}}:{{service.port}} {% endfor %}{% endfor %}"

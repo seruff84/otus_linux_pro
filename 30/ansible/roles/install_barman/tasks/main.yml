@@ -1,0 +1,200 @@
+---
+# tasks file for install_barman
+# Установка необходимых пакетов для работы с postgres и пользователями
+ 
+  - name: Install base tools
+    ansible.builtin.apt:
+      name:
+        - python3-pexpect
+        - python3-psycopg2
+        - bash-completion
+        - wget
+        - acl
+      state: present
+      update_cache: true
+    tags: [barman,install]
+
+  #  Установка пакетов barman и postgresql-client на сервер barman
+  - name: Install barman packages on barman
+    ansible.builtin.apt:
+      name:
+        - barman
+        - barman-cli
+      state: present
+      update_cache: true
+    when: inventory_hostname in groups["backup"]
+    tags: [barman, barman-server, install]
+
+ #  Установка пакетов barman-cli на серверах
+  - name: Install barman-cli and postgresql packages on nodes
+    ansible.builtin.apt:
+      name:
+        - barman-cli
+      state: present
+      update_cache: true
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, install, barman_client]
+
+#  Генерируем SSH-ключ для пользователя postgres на хосте node1
+  - name: Generate SSH key for postgres
+    ansible.builtin.user:
+      name: postgres
+      generate_ssh_key: true
+      ssh_key_type: rsa
+      ssh_key_bits: 4096
+      force: false
+    when: inventory_hostname in groups["postgres"]
+    tags: [barman, install, barman_client]
+
+#  Генерируем SSH-ключ для пользователя barman на хосте barman
+  - name: Generate SSH key for barman
+    ansible.builtin.user:
+      name: barman
+      uid: 994
+      shell: /bin/bash
+      generate_ssh_key: true
+      ssh_key_type: rsa
+      ssh_key_bits: 4096
+      force: false
+    when: inventory_hostname in groups["backup"]
+    tags: [barman, barman-server]
+
+  #  Забираем содержимое открытого ключа postgres c хоста node1
+  - name: Fetch all public ssh keys {{ inventory_hostname }}
+    ansible.builtin.shell: cat /var/lib/postgresql/.ssh/id_rsa.pub
+    register: ssh_keys
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+  #  Копируем ключ с barman на node1
+  - name: Transfer public key to barman
+    delegate_to: "{{ barman_name }}"
+    ansible.posix.authorized_key:
+      key: "{{ ssh_keys.stdout }}"
+      comment: "{{ ansible_hostname }}"
+      user: "{{ barman_user }}"
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+  #  Забираем содержимое открытого ключа barman c хоста barman
+  - name: Fetch all public ssh keys barman
+    ansible.builtin.shell: cat /var/lib/barman/.ssh/id_rsa.pub
+    register: ssh_keys
+    when: inventory_hostname in groups["backup"]
+    tags: [barman, barman-server]
+
+ #  Копируем ключ с node1 на barman
+  - name: Transfer public key to barman
+    delegate_to: "{{ postgresql_master_name }}"
+    ansible.posix.authorized_key:
+      key: "{{ ssh_keys.stdout }}"
+      comment: "{{ ansible_hostname }}"
+      user: postgres
+    when: inventory_hostname in groups["backup"]
+    tags: [barman, barman-server]
+
+  # CREATE USER barman SUPERUSER;
+  - name: Add PostgreSQL user barman
+    become_user: postgres
+    community.postgresql.postgresql_user:
+      user: "{{ barman_user }}"
+      password: "{{ barman_user_password }}"
+      role_attr_flags: replication
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+  - name: Add roled to barman.
+    become_user: postgres
+    community.postgresql.postgresql_membership:
+      groups:
+        - pg_read_all_settings
+        - pg_read_all_stats
+      target_role: "{{ barman_user }}"
+      state: present
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+  - name: GRANT EXECUTE PRIVILEGES ON FUNCTION pg_XXX TO barman
+    become_user: postgres
+    community.postgresql.postgresql_privs:
+      db: postgres
+      privs: EXECUTE
+      type: function
+      obj: pg_start_backup(text:boolean:boolean),pg_stop_backup(),pg_stop_backup(boolean:boolean),pg_switch_wal(),pg_create_restore_point(text)
+      schema: pg_catalog
+      roles: "{{ barman_user }}"
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+  - debug:
+      msg: "{{ barman_ip }} {{ hostvars[groups['pg_master'][0]]['listen_ip'] }}"
+   # Добавляем разрешения для подключения с хоста barman
+  - name: Add permission for barman
+    ansible.builtin.lineinfile:
+      path: "{{ postgresql_config_location }}/pg_hba.conf"
+      line: 'host    all   {{ barman_user }}    {{ barman_ip }}/32    scram-sha-256'
+    when: inventory_hostname in groups["postgres"]
+    tags: [barman, barman_client]
+
+  # Добавляем разрешения для подключения с хоста barman
+  - name: Add permission for barman
+    ansible.builtin.lineinfile:
+      path: "{{ postgresql_config_location }}/pg_hba.conf"
+      line: 'host    replication   {{ barman_user }}    {{ barman_ip }}/32    scram-sha-256'
+    when: inventory_hostname in groups["postgres"]
+    tags: [barman, barman_client]
+
+  # Перезагружаем службу postgresql-server
+  - name: Restart postgresql-server on node1
+    ansible.builtin.service:
+      name: postgresql
+      state: reloaded
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+
+  # Копируем файл .pgpass
+  - name: Copy .pgpass
+    ansible.builtin.template:
+      src: .pgpass.j2
+      dest: /var/lib/barman/.pgpass
+      owner: barman
+      group: barman
+      mode: '0600'
+    when: 'inventory_hostname in groups["backup"]'
+    tags: [barman, barman-server]
+
+  # Копируем файл barman.conf
+  - name: Copy barman.conf
+    ansible.builtin.template:
+      src: barman.conf.j2
+      dest: /etc/barman.conf
+      owner: barman
+      group: barman
+      mode: '0755'
+    when: 'inventory_hostname in groups["backup"]'
+    tags: [barman, barman-server]
+
+ # Копируем файл node.conf
+  - name: Copy node.conf
+    ansible.builtin.template:
+      src: node.conf.j2
+      dest: /etc/barman.d/{{ postgresql_master_name }}.conf
+      owner: barman
+      group: barman
+      mode: '0755'
+    when: 'inventory_hostname in groups["backup"]'
+    tags: [barman, barman-server]
+    register: result
+
+  - name: Barman switch-wal 
+    become_user: barman
+    ansible.builtin.shell: barman switch-wal {{ postgresql_master_name }}
+    when: 'inventory_hostname in groups["backup"]' # and result.changed'
+    tags: [barman, barman-server]
+
+  - name: Barman cron
+    become_user: barman
+    ansible.builtin.shell: barman cron
+    when: 'inventory_hostname in groups["backup"]' # and result.changed'
+    tags: [barman, barman-server]

@@ -16,4 +16,5 @@
 .terraform*
 *.tfstate*
 */advanced
-30/app
+30/fact.json
+30/journal

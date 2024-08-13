@@ -1,0 +1,17 @@
+- name: Configure DB servers
+  hosts: postgres
+  become: true
+  tasks:
+  - name: "APT | install components"
+    ansible.builtin.package:
+      name:
+        - vim
+        - telnet
+      state: present
+      update_cache: true
+  collections:
+    - prometheus.prometheus
+  roles:
+  - install_postgres
+  - postgres_replication
+  - prometheus.prometheus.postgres_exporter

@@ -56,7 +56,3 @@
 ## Заключение
 
 Данная архитектура обеспечивает надежную, безопасную и масштабируемую работу веб-приложения. Использование приватной сети и балансировщиков нагрузки обеспечивает высокую степень защиты данных и высокую доступность сервиса для пользователей. Система мониторинга и логирования позволяет своевременно обнаруживать и устранять возможные проблемы в работе приложения.
-{
-    "prompt": "A network diagram of a Django web application architecture. Include the following components: 1. Clients: Users connecting via the internet to load balancers. 2. Load Balancers (Angie): Two servers with public IPs 192.168.3.231 and 192.168.3.232, and private IPs 192.168.57.16 and 192.168.57.17. 3. Application Servers (Django): Two servers with IPs 192.168.57.14 and 192.168.57.15, processing user requests and interacting with the database. 4. Database Servers: Master server with IP 192.168.57.11 and replica server with IP 192.168.57.12 for data storage and replication. 5. Monitoring and Logging Server: Uses Prometheus and Elasticsearch with Grafana for data visualization. 6. Security: All servers protected by firewalls, with public access allowed only on ports 80 and 443 on the load balancers. Use clear labels and connections between components to show the flow of data and requests.",
-    "size": "1792x1024"
-}

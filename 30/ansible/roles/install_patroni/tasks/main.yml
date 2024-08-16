@@ -1,0 +1,133 @@
+---
+# tasks file for install_patroni
+
+- name: Patroni | Disable postgresql service | systemd
+  ansible.builtin.systemd_service:
+    name: postgresql
+    state: stopped
+    enabled: false
+  tags: patroni
+  register: result
+
+- name: Patroni | Delete initial postgresql cluster
+  ansible.builtin.file:
+    path: "{{ postgresql_data_path }}"
+    state: absent
+  tags: patroni
+  when: result.changed
+
+- name: Patroni | Add the softdog module
+  ansible.builtin.lineinfile:
+    path: /etc/modules
+    line: softdog
+    owner: root
+    group: root
+    mode: '0640'
+  notify: Reboot machine
+
+- name: Patroni | Find modulee in blacklist
+  ansible.builtin.shell:
+    cmd: set -o pipefail && grep blacklist /lib/modprobe.d/* /etc/modprobe.d/* |grep softdog
+    executable: /bin/bash
+  register: blacklist_row
+  changed_when: blacklist_row.rc != 0
+
+- name: Patroni | Set fact blacklist
+  ansible.builtin.set_fact:
+    blacklist: "{{ blacklist_row.stdout_lines | map('split', ':') | map('first') | list }}"
+
+- name: Patroni | rmove modulee from blacklist
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: "^blacklist softdog.*"
+    line: '# blacklist softdog'
+    owner: root
+    group: root
+    mode: '0640'
+  loop: "{{ blacklist }}"
+  notify: Reboot machine
+
+- name: Patroni | Ensure the postgres user have rights for watchdog
+  ansible.builtin.lineinfile:
+    path: /etc/udev/rules.d/61-watchdog.rules
+    line: 'KERNEL=="watchdog", OWNER="postgres", GROUP="postgres"'
+    create: true
+    owner: root
+    group: root
+    mode: '0640'
+  notify: Reboot machine
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  ansible.builtin.meta: flush_handlers
+
+- name: Patroni | install components | apt
+  ansible.builtin.package:
+    name:
+      - patroni
+    state: present
+    update_cache: true
+  tags: [install, patroni]
+
+- name: Set cidr fact
+  ansible.builtin.set_fact:
+    localnet: "{{ cidr | default([]) +
+              [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
+  loop: "{{ ansible_interfaces |
+              map('extract', ansible_facts, 'ipv4') |
+              select('defined') | list }}"
+  when: listen_ip | ipaddr((item.network ~ '/' ~ item.netmask)| ansible.utils.ipaddr('network/prefix'))
+  tags: patroni
+
+- name: Patroni | get settings from api | pgtun
+  ansible.builtin.uri:
+    url: https://pgtune.sainth.de/api/configuration
+    body: "{{ pgtun_body }}"
+    body_format: json
+    method: POST
+    return_content: true
+    headers:
+      Content-Type: "application/json"
+  register: result
+  tags: patroni
+
+- name: Patroni | Set variable pgtun_postgresql_setting
+  ansible.builtin.set_fact:
+    pgtun_postgresql_setting: "{{ result.content | replace(' =',':') | split('\n') | select()}}"
+  when: 'result.status == 200 and result.content is defined and result.content != ""'
+  tags: patroni
+
+- name: Patroni | Register config file
+  ansible.builtin.stat:
+    path: "{{ patroni_config_dir }}/config.yml"
+  register: file_path
+
+- name: Patroni | Delete patroni config
+  ansible.builtin.file:
+    path: "{{ patroni_config_dir }}"
+    state: absent
+  tags: patroni
+  when: 'not file_path.stat.exists'
+
+- name: Patroni | Delete patroni config
+  ansible.builtin.file:
+    path: "{{ patroni_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0751"
+  tags: patroni
+
+- name: Patroni | Set up config
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: /etc/patroni/config.yml
+    mode: '0644'
+  notify: Restart patroni
+  tags: patroni
+
+- name: Patroni | Start service | systemd
+  ansible.builtin.systemd_service:
+    name: patroni
+    state: started
+    enabled: true
+  tags: patroni

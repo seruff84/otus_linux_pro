@@ -1,0 +1,27 @@
+- name: Initial setup
+  hosts: all
+  become: true
+  roles:
+  - prometheus.prometheus.node_exporter
+  tasks:
+    - name: "APT | install components"
+      ansible.builtin.package:
+        name:
+          - vim
+          - telnet
+          - acl
+          - curl
+          - ca-certificates
+        state: present
+        update_cache: true
+      tags: [install, init]
+    - name: Set timezone to Europe/Moscow
+      community.general.timezone:
+        name: Europe/Moscow
+      tags: init
+
+    - name: Set up hosts file
+      ansible.builtin.template:
+        src: hosts.j2
+        dest: /etc/hosts
+      tags: init

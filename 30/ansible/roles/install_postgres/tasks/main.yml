@@ -1,17 +1,27 @@
 ---
 # tasks file for install_postgrs
 
-- name: includ  {{ ansible_distribution}} specific tasks
+- name: Include tasks for {{ ansible_distribution }}
   ansible.builtin.include_tasks:
     file: '{{ ansible_distribution_file_variety }}.yml'
 
-- name: includ  pgtune tasks
-  ansible.builtin.include_tasks:
-    file: 'pgtune.yml'
+- name: Postgres | postinstall
+  when: postgres_is_installed.changed
+  block:
+  - name: Includ pgtune tasks
+    ansible.builtin.include_tasks:
+      file: 'pgtune.yml'
 
-- name: PostgreSQL | Create replicator user | All
-  become_user: postgres
-  postgresql_user:
-    name: 'postgres-exp'
-    password: 'postgres-exp'
-    role_attr_flags: SUPERUSER
+  - name: PostgreSQL | Create replicator user | All
+    become_user: postgres
+    community.postgresql.postgresql_user:
+      name: 'postgres-exp'
+      password: 'postgres-exp'
+      role_attr_flags: SUPERUSER
+
+  - name: Enable and start service
+    ansible.builtin.service:
+      name: postgresql
+      state: started
+      enabled: true
+

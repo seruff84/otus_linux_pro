@@ -1,0 +1,5 @@
+---
+# vars file for install_patroni
+patroni_ips : "{% set IP_ARR=[] %}{% for host in groups['postgres'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+etcd_ips : "{% set IP_ARR=[] %}{% for host in groups['etcd'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
+

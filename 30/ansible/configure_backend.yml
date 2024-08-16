@@ -5,4 +5,3 @@
 
   roles:
   - deploy_app
-  - prometheus.prometheus.node_exporter

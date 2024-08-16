@@ -2,7 +2,9 @@
 ---
 # tasks file for install_grafana
 - name: Install Grafana
+  tags: [install, grafana]
   block:
+
     - name: Install Grafana | install components | apt
       ansible.builtin.package:
         name:

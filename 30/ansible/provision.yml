@@ -1,3 +1,6 @@
+- name: Include a play initial_setup
+  ansible.builtin.import_playbook: initial_setup.yml
+
 - name: Include a play configure_db_servers
   ansible.builtin.import_playbook: configure_db_servers.yml
 

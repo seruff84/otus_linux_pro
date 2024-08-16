@@ -1,28 +1,67 @@
 - name: Prepare app
-  hosts: web02
+  hosts: db02
   become: true
   become_user: 'root'
-
+  vars:
+    etcd_proto: 'http'
+    etc_peer_port: '2380'
   tasks:
-    - name: Set cidr fact
-      ansible.builtin.set_fact:
-        cidr: "{{ cidr | default([]) +
-                  [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
-      loop: "{{ ansible_interfaces |
-                  map('extract', ansible_facts, 'ipv4') |
-                  select('defined') | list }}"
-    - name: Set ip_in_subnet fact
-      ansible.builtin.set_fact:
-        ip_in_subnet: "{{ subnet }}"
-      when: listen_ip | ipaddr(subnet)
-      loop: "{{ cidr }}"
-      loop_control:
-        loop_var: subnet
+    # - name: Set cidr fact
+    #   ansible.builtin.set_fact:
+    #     cidr: "{{ cidr | default([]) +
+    #               [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
+    #   loop: "{{ ansible_interfaces |
+    #               map('extract', ansible_facts, 'ipv4') |
+    #               select('defined') | list }}"
+    #   when: listen_ip | ipaddr((item.network ~ '/' ~ item.netmask)| ansible.utils.ipaddr('network/prefix'))
+
+
+
+    # - name: Register file
+    #   ansible.builtin.stat:
+    #     path: "{{ patroni_config_dir }}/config.yml"
+    #   register: file_path
+    # - name: Patroni | Delete patroni config
+    #   ansible.builtin.file:
+    #     path: "{{ patroni_config_dir }}"
+    #     state: absent
+    #   tags: patroni
+    #   when: 'not file_path.stat.exists'
+
+    # - name: Patroni | Delete patroni config
+    #   ansible.builtin.file:
+    #     path: "{{ patroni_config_dir }}"
+    #     state: directory
+    #     owner: root
+    #     group: root
+    #     mode: "0751"
+    #   tags: patroni
+
+
+
+
+
+    # - name: Set ip_in_subnet fact
+    #   ansible.builtin.set_fact:
+    #     ip_in_subnet: "{{ subnet }}"
+    #   when: listen_ip | ipaddr(subnet)
+    #   loop: "{{ cidr }}"
+    #   loop_control:
+    #     loop_var: subnet
+
+    # - name: Patroni | Find modulee in blacklist
+    #   ansible.builtin.shell: "grep blacklist /lib/modprobe.d/* /etc/modprobe.d/* |grep softdog"
+    #   register: blacklist_row
+
+    # - name: Patroni | Set fact local_int
+    #   ansible.builtin.set_fact:
+    #     blacklist: "{{ blacklist_row.stdout_lines | map('split',':') | map('first') | list}}"
 
     # - name: Set nginx_allwed_net fact
     #   ansible.builtin.set_fact:
-    #     nginx_allowed_net: "{{cidr.network}}"              
+    #     nginx_allowed_net: "{{cidr | select('ipaddr', listen_ip) | list }}"              
     - debug:
-        msg: "{{ip_in_subnet}}"
+        msg: "{{ ansible_interfaces | map('extract', ansible_facts, 'ipv4') }}"
+        # msg: "{% set FQDN=[] %}{% for host in groups['etcd'] %}{% if FQDN.insert(loop.index,hostvars[host]['ansible_fqdn']+'='+etcd_proto+'://'+hostvars[host]['listen_ip']+':'+etc_peer_port) %}{% endif %}{% endfor %}{{FQDN}}"
         #var: hostvars['monitor']['listen_ip']
         # msg: "{% for service in services %}  {% for ip  in service.ips %} {{ip}}:{{service.port}} {% endfor %}{% endfor %}"

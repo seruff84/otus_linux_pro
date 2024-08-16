@@ -3,4 +3,3 @@
   become: true
   roles:
   - frontend
-  - prometheus.prometheus.node_exporter

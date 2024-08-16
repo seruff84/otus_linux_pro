@@ -1,0 +1,3 @@
+---
+# vars file for install-etcd
+etcd_initial_cluster_peers: "{% set FQDN=[] %}{% for host in groups['etcd'] %}{% if FQDN.insert(loop.index,hostvars[host]['inventory_hostname']+'='+etcd_proto+'://'+hostvars[host]['listen_ip']+':'+etc_peer_port) %}{% endif %}{% endfor %}{{FQDN}}"

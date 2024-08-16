@@ -5,6 +5,7 @@
     url: "{{ filebeat_url }}"
     dest: "{{ filebeat_distr_dest }}"
     mode: '0644'
+  tags: [install, filebeat]
 
 - name: "Install filebeat | Install a package {{ filebeat_distr }}"
   ansible.builtin.apt:
@@ -19,6 +20,7 @@
     mode: '0600'
   when: 'filebeat_default_input'
   notify: Restart filebeat
+  tags: [install, filebeat]
 
 - block:
   - name: Install filebeat| Enable nginx modul
@@ -31,6 +33,7 @@
       owner: root
       group: root
       mode: '0644'
+    tags: [install, filebeat]
 
   when: 'filebeat_modeule_nginx'
   notify: Restart filebeat

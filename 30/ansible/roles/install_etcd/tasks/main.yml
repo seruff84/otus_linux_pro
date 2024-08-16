@@ -1,0 +1,30 @@
+---
+# tasks file for install-etcd
+- name: Etcd | install components | apt
+  ansible.builtin.package:
+    name:
+      - etcd
+    state: present
+    update_cache: true
+  tags: [install, etcd]
+
+# - name: Set ETCD_INITIAL_CLUSTER_STATE if cluster exist
+#   ansible.builtin.set_fact:
+#     etcd_cluster_state: 'existing'
+#   tags: etcd
+
+
+- name: Set up etcd config
+  ansible.builtin.template:
+    src: etcd.j2
+    dest: /etc/default/etcd
+    mode: '0644'
+  notify: Restart etcd
+  tags: etcd
+
+
+- name: Start etcd
+  ansible.builtin.systemd_service:
+    name: etcd
+    state: started
+  tags: etcd

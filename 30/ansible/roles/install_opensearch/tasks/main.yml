@@ -42,7 +42,8 @@
 #       state: started
 #       enabled: true
 #       masked: false
-- block: 
+- name: Install elasticsearch
+  block:
   - name: Install elasticsearch | Install perequest| apt
     ansible.builtin.package:
       name:
@@ -53,17 +54,20 @@
         - openjdk-11-jre
       state: present
       update_cache: true
+    tags: [install, elasticsearch]
 
   - name: Install elasticsearch | add gpg key
     ansible.builtin.apt_key:
       url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
       state: present
+    tags: [install, elasticsearch]
 
   - name: Install elasticsearch | apt source
     ansible.builtin.apt_repository:
       repo: "deb https://artifacts.elastic.co/packages/7.x/apt stable main"
       state: present
       filename: elasticsearch
+    tags: [install, elasticsearch]
 
   - name: Install elasticsearch | apt
     ansible.builtin.package:
@@ -73,6 +77,7 @@
       update_cache: true
     environment:
       ELASTIC_PASSWORD: "{{ opensearch_admin_pass }}"
+    tags: [install, elasticsearch]
 
   - name: Configure elasticsearch
     ansible.builtin.template:
@@ -80,7 +85,9 @@
       dest: /etc/elasticsearch/elasticsearch.yml
       owner: root
       group: elasticsearch
+      mode: '0644'
     notify: Restart elasticsearch
+    tags: [configure, elasticsearch]
 
   - name: Start elasticsearch
     ansible.builtin.systemd_service:
@@ -88,3 +95,4 @@
       state: started
       enabled: true
       masked: false
+    tags: [configure, elasticsearch]

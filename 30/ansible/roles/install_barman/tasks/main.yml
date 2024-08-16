@@ -44,7 +44,7 @@
       ssh_key_bits: 4096
       force: false
     when: inventory_hostname in groups["postgres"]
-    tags: [barman, install, barman_client]
+    tags: [barman, barman_client]
 
 #  Генерируем SSH-ключ для пользователя barman на хосте barman
   - name: Generate SSH key for barman

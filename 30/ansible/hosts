@@ -9,8 +9,10 @@ web02 ansible_host=192.168.57.17 ansible_user=vagrant ansible_ssh_private_key_fi
 monitor ansible_host=192.168.57.18 ansible_user=vagrant ansible_ssh_private_key_file=./.vagrant/machines/monitor/virtualbox/private_key listen_ip=192.168.57.18 
 [pg_master]
 db01
+
 [pg_slaves]
 db02
+
 [pg_other]
 
 [postgres:children]
@@ -29,6 +31,10 @@ web02
 [monitoring]
 monitor
 
+[etcd]
+
+[etcd_master]
+
 [whole_application:children]
 postgres
 app
@@ -39,7 +45,6 @@ app02
 
 [front:vars]
 filebeat_modeule_nginx=true
-
 
 [postgres:vars]
 postgresql_port=5432

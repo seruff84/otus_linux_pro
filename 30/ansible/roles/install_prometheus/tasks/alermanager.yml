@@ -1,0 +1,97 @@
+# code: language=ansible
+- name: Alertmanager | Ensure group exists "{{ prometheus_user }}"
+  ansible.builtin.group:
+    name: "{{ prometheus_user }}"
+    system: true
+    state: present
+  tags: [monitoring, alertmanager, install]
+
+- name: Alertmanager | Add the user '{{ prometheus_user }}'
+  ansible.builtin.user:
+    name: "{{ prometheus_user }}"
+    shell: /sbin/nologin
+    system: true
+    groups: "{{ prometheus_user }}"
+    append: true
+  tags: [monitoring, alertmanager, install]
+
+- name: Alertmanager | Create dirs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+  loop:
+    - "{{ prometheus_conf_dir }}"
+    - "{{ prometheus_lib_dir }}/alertmanager"
+  tags: [monitoring, alertmanager, install]
+
+- name: Alertmanager | download prometheus distib | get_url
+  ansible.builtin.get_url:
+    url: "{{ prometheus_alertmanager_url }}"
+    dest: "{{ tmp_dir }}/{{ prometheus_alertmanager_arch }}"
+    mode: '0640'
+  tags: [monitoring, alertmanager, install]
+
+- name: Alertmanager | Extract "{{ prometheus_alertmanager_arch }}"
+  ansible.builtin.unarchive:
+    src: "{{ tmp_dir }}/{{ prometheus_alertmanager_arch }}"
+    dest: "{{ tmp_dir }}/"
+    remote_src: true
+  tags: [monitoring, alertmanager, install]
+
+- name: Alertmanager | Copy bin file with owner and permissions | bin
+  ansible.builtin.copy:
+    src: "{{ prometheus_alertmanager_tmp_dir }}/{{ item }}"
+    dest: "{{ prometheus_bin_dir }}/{{ item }}"
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+    mode: '0750'
+    remote_src: true
+  loop:
+    - alertmanager
+    - amtool
+  notify: Restart alertmanager
+  tags: [monitoring, alertmanager, install]
+
+- name: Alertmanager | Copy alert config
+  ansible.builtin.copy:
+    src: "alert.rules.yml"
+    dest: "{{ prometheus_conf_dir }}/alert.rules.yml"
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+    mode: '0640'
+  loop:
+    - alertmanager
+    - amtool
+  notify: Restart alertmanager
+  tags: [monitoring, alertmanager, install]
+  
+- name: Alertmanager | Configure prometheus exporter
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: "{{ prometheus_conf_dir }}/alertmanager.yml"
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+    mode: '0640'
+  notify: Restart alertmanager
+  tags: [monitoring, alertmanager, install]
+
+- name: Alertmanager | Configure service | systemstl
+  ansible.builtin.template:
+    src: alertmanager.service.j2
+    dest: "/etc/systemd/system/alertmanager.service"
+    owner: root
+    group: root
+    mode: '0640'
+  notify: Restart alertmanager
+  tags: [monitoring, alertmanager, install]
+
+- name: Alertmanager | Start Prometheus
+  ansible.builtin.systemd_service:
+    name: alertmanager
+    state: started
+    enabled: true
+    masked: false
+  tags: [monitoring, alertmanager, install]

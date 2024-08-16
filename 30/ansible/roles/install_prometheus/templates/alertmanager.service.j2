@@ -1,0 +1,19 @@
+[Unit]
+Description=Alertmanager Service
+After=network.target
+
+[Service]
+EnvironmentFile=-/etc/default/alertmanager
+User={{ prometheus_user }}
+Group={{ prometheus_user }}
+Type=simple
+ExecStart={{ prometheus_bin_dir }}/alertmanager \
+--config.file={{ prometheus_conf_dir }}/alertmanager.yml \
+--storage.path={{ prometheus_lib_dir }}/alertmanager \
+--cluster.advertise-address="127.0.0.1:9093"\
+$ALERTMANAGER_OPTS
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

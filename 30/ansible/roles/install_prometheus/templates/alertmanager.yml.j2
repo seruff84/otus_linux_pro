@@ -1,0 +1,31 @@
+
+global:
+  resolve_timeout: 1m
+
+route:
+  receiver: 'telegram'
+
+{# receivers:
+- name: 'telegram'
+  webhook_configs:
+  - url: 'https://api.telegram.org/bot2031616662:AAFlzDm0KNRQY8OrdCZEvwwOghM419zPaSw/sendMessage?chat_id=172467490&text=Alert: {{ .CommonAnnotations.summary }}%0A{{ .CommonAnnotations.description }}'
+    send_resolved: true #}
+receivers:
+- name: 'telegram'
+  telegram_configs:
+  - bot_token: '{{ telegram_token }}'
+    api_url: 'https://api.telegram.org'
+    chat_id: {{ telegram_chat_id }}
+    parse_mode: 'HTML'
+
+
+
+
+
+
+
+
+
+
+
+

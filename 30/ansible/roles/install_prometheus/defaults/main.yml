@@ -1,12 +1,13 @@
+# code: language=ansible
 ---
 # defaults file for install_prometheus
 prometheus_user: 'prometheus'
-prometheus_version: '2.53.1' 
+prometheus_version: '2.53.1'
 prometheus_distr: 'prometheus-{{ prometheus_version }}.linux-amd64'
 prometheus_distr_arch: '{{ prometheus_distr }}.tar.gz'
 prometheus_url: https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/{{ prometheus_distr_arch }}
 tmp_dir: "/tmp"
-prometheus_install_tmp_dir : "{{ tmp_dir }}/{{prometheus_distr}}" 
+prometheus_install_tmp_dir: "{{ tmp_dir }}/{{ prometheus_distr }}"
 prometheus_bin_dir: '/usr/local/bin'
 prometheus_conf_dir: '/etc/prometheus'
 prometheus_lib_dir: '/var/lib/prometheus'
@@ -14,3 +15,14 @@ prometheus_lib_dir: '/var/lib/prometheus'
 prometheus_exporter_pg_port: '9187'
 prometheus_exporter_node_port: '9100'
 prometheus_exporter_angie_port: '80'
+
+
+prometheus_alertmanager_version: '0.27.0'
+prometheus_alertmanager_distr: 'alertmanager-{{ prometheus_alertmanager_version }}.linux-amd64'
+prometheus_alertmanager_arch: '{{ prometheus_alertmanager_distr }}.tar.gz'
+prometheus_alertmanager_url: 'https://github.com/prometheus/alertmanager/releases/download/v{{ prometheus_alertmanager_version }}/{{ prometheus_alertmanager_arch }}'
+prometheus_alertmanager_tmp_dir: "{{ tmp_dir }}/{{ prometheus_alertmanager_distr }}"
+
+
+telegram_token: ''
+telegram_chat_id: ''

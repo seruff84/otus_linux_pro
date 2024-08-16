@@ -20,6 +20,7 @@
       ansible.builtin.dnf:
         name: "postgresql{{ postgresql_version }}-server,postgresql{{ postgresql_version }},postgresql{{ postgresql_version}}-contrib"
         state: present
+      egister: postgres_is_installed
 
     - name: enable and start service
       ansible.builtin.service:

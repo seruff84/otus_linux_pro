@@ -1,91 +1,10 @@
 ---
-# tasks file for install_prometheus
+- name: Include tasks for prometheus
+  ansible.builtin.include_tasks:
+    file: 'prometheus.yml'
+  tags: [monitoring, prometheus, install]
 
-- name: Ensure group "{{ prometheus_user }}" exists
-  ansible.builtin.group:
-    name: "{{ prometheus_user }}"
-    system: true
-    state: present
-
-- name: Add the user '{{ prometheus_user }}' 
-  ansible.builtin.user:
-    name: "{{ prometheus_user }}"
-    shell: /sbin/nologin
-    system: true
-    groups: "{{ prometheus_user }}"
-    append: yes
-
-- name: OS | Create dirs
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    recurse: yes
-    owner: "{{ prometheus_user }}"
-    group: "{{ prometheus_user }}"
-  loop:
-    - "{{ prometheus_conf_dir }}"
-    - "{{ prometheus_lib_dir }}"
-
-- name: OS | download prometheus distib | get_url
-  ansible.builtin.get_url:
-    url: "{{ prometheus_url }}"
-    dest: "{{tmp_dir}}/{{ prometheus_distr_arch }}"
-
-- name: OS | Extract "{{tmp_dir}}/{{ prometheus_distr_arch }}" | gzip
-  ansible.builtin.unarchive:
-    src: "{{tmp_dir}}/{{ prometheus_distr_arch }}"
-    dest: "{{tmp_dir}}/"
-    remote_src: true
-
-- name: Copy | Copy bin file with owner and permissions | bin
-  ansible.builtin.copy:
-    src: "{{prometheus_install_tmp_dir}}/{{item}}"
-    dest: "{{ prometheus_bin_dir }}/{{item}}"
-    owner: "{{ prometheus_user }}"
-    group: "{{ prometheus_user }}"
-    mode: '0750'
-    remote_src: true
-  loop:
-    - prometheus
-    - promtool
-  notify: Restart Prometheus
-
-- name: Copy | Copy config file with owner and permissions | config
-  ansible.builtin.copy:
-    src: "{{prometheus_install_tmp_dir}}/{{item}}"
-    dest: "{{ prometheus_conf_dir }}/{{item}}"
-    owner: "{{ prometheus_user }}"
-    group: "{{ prometheus_user }}"
-    mode: '0644'
-    directory_mode: '0755'
-    remote_src: true
-  loop:
-    - consoles
-    - console_libraries
-    # - prometheus.yml
-  notify: Restart Prometheus
-
-- name: Prometheus | Configure prometheus exporter
-  ansible.builtin.template:
-    src: prometheus.yml.j2
-    dest: "{{ prometheus_conf_dir }}/prometheus.yml"
-    owner: "{{ prometheus_user }}"
-    group: "{{ prometheus_user }}"
-    mode: '0640'
-  notify: Restart Prometheus
-
-- name: Systemctl | Configure service | prometheus
-  ansible.builtin.template:
-    src: prometheus.service.j2
-    dest: "/etc/systemd/system/prometheus.service"
-    owner: root
-    group: root
-    mode: '0640'
-  notify: Restart Prometheus
-
-- name: Start Prometheus
-  ansible.builtin.systemd_service:
-    name: prometheus
-    state: started
-    enabled: true
-    masked: no
+- name: Include tasks for alermanager
+  ansible.builtin.include_tasks:
+    file: 'alermanager.yml'
+  tags: [monitoring, alertmanager, install]

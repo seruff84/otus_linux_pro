@@ -1,7 +1,9 @@
    # code: language=ansible
-- block:
+- name: App | Deploy app
+  when: 'inventory_hostname in groups["app"]'
+  block:
   - name: App | Install pakage | apt
-    apt:
+    ansible.builtin.apt:
       name:
         - python3-pip
         - acl
@@ -9,7 +11,7 @@
       update_cache: true
     when: 'inventory_hostname in groups["app"]'
 
-  - name: App | Create a user '{{ gunicorn_user }}' with a home directory
+  - name: App | Create a user '{{ gunicorn_user }}'
     ansible.builtin.user:
       name: "{{ gunicorn_user }}"
       shell: /bin/bash
@@ -20,7 +22,9 @@
     ansible.builtin.git:
       repo: "{{ app_git_repo }}"
       dest: "{{ app_base_path }}"
+      force: true
     become_user: "{{ gunicorn_user }}"
+    notify: Restart gunicorn
 
   - name: App | Install specified python requirements | pip
     ansible.builtin.pip:
@@ -53,7 +57,7 @@
   - name: App | Create settings.py  | config
     ansible.builtin.template:
       src: settings.py.j2
-      dest: "{{app_settings_path}}"
+      dest: "{{ app_settings_path }}"
       owner: "{{ gunicorn_user }}"
       group: "{{ gunicorn_user }}"
       mode: '0600'
@@ -63,9 +67,7 @@
     ansible.builtin.systemd_service:
       name: "{{ item }}"
       enabled: true
-      masked: no
+      masked: false
     loop:
       - gunicorn.service
       - gunicorn.socket
-      
-  when: 'inventory_hostname in groups["app"]'

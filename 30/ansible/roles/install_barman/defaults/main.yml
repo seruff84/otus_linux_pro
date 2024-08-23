@@ -12,3 +12,9 @@ postgresql_config_location: "{{ postgresql_base_conf_dir }}/{{ postgresql_versio
 postgresql_base_data_dir: "/var/lib/postgresql"
 postgresql_data_path: "{{  postgresql_base_data_dir }}/{{ postgresql_version }}/{{ postgresql_cluster }}"
 postgresql_trigger_file: "/tmp/promotedb"
+keepalived_ip: '192.168.57.100'
+use_patroni: true
+postgres_port: 5432
+patroni_postgres_password: 'Otus123'
+postgresql_cluster_port: 5000
+postgresql_cluster_passive_port: 5001

@@ -1,3 +1,4 @@
+# code: language=yaml
 scope: {{ patroni_scope }}
 name: {{ inventory_hostname }}
 
@@ -58,10 +59,13 @@ bootstrap:
 
   pg_hba:  # Add following lines to pg_hba.conf after running 'initdb'
   - host replication replicator {{ localnet[0] }} md5
+  - host replication barman {{ localnet[0] }} scram-sha-256
   - host replication replicator 127.0.0.1/32 trust
   - host all all {{ localnet[0] }} md5
+  - host all all {{ localnet[0] }} scram-sha-256
   - host all all 0.0.0.0/0 md5
-#  - hostssl all all 0.0.0.0/0 md5
+  
+# - hostssl all all 0.0.0.0/0 md5
 
   # Additional script to be launched after initial cluster creation (will be passed the connection URL as parameter)
 # post_init: /usr/local/bin/setup_cluster.sh
@@ -95,8 +99,20 @@ postgresql:
     #archive_mode: on
     #archive_command: /usr/local/bin/copy_wal.sh %p %f
     #archive_timeout: 600
-    unix_socket_directories: '/var/run/postgresql'
     port: 5432
+  pg_hba:
+  - local   all             all                                     trust
+  - host    all             all             127.0.0.1/32            trust
+  - host    all             all             ::1/128                 trust
+  - local   replication     all                                     trust
+  - host    replication     all             127.0.0.1/32            trust
+  - host    replication     all             ::1/128                 trust
+  - host    replication   replicator  {{ localnet[0] }} md5
+  - host    replication barman {{ localnet[0] }} scram-sha-256
+  - host    replication replicator 127.0.0.1/32 trust
+  - host    all all {{ localnet[0] }} md5
+  - host    all all {{ localnet[0] }} scram-sha-256
+  - host    all all 0.0.0.0/0 md5
 
 watchdog:
   mode: required # Allowed values: off, automatic, required

@@ -1,10 +1,14 @@
+{% if use_patroni %}
+{% set postgresql_master_ip, postgres_port = keepalived_ip, postgresql_cluster_port %}
+{% endif %}
+
 [{{postgresql_master_name}}]
 #Описание задания
 description = "backup {{postgresql_master_name}}"
 #Команда подключения к хосту {{postgresql_master_name}}
 ssh_command = ssh postgres@{{postgresql_master_ip}}
 #Команда для подключения к postgres-серверу
-conninfo = host={{postgresql_master_ip}} user={{barman_user}} port=5432 dbname=postgres
+conninfo = host={{postgresql_master_ip}} user={{barman_user}} port={{postgres_port}} dbname=postgres
 retention_policy_mode = auto
 retention_policy = RECOVERY WINDOW OF 7 days
 wal_retention_policy = main

@@ -1,1 +1,6 @@
-{{postgresql_master_ip}}:5432:*:{{barman_user}}:{{barman_user_password}}
+
+{% if use_patroni %}
+{% set postgresql_master_ip, postgres_port = keepalived_ip, postgresql_cluster_port %}
+{% endif %}
+
+{{postgresql_master_ip}}:{{ postgres_port }}:*:{{barman_user}}:{{barman_user_password}}

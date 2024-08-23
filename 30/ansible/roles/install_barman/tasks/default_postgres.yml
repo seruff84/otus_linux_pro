@@ -1,0 +1,74 @@
+ # CREATE USER barman SUPERUSER;
+  - name: Add PostgreSQL user barman
+    become_user: postgres
+    community.postgresql.postgresql_user:
+      user: "{{ barman_user }}"
+      password: "{{ barman_user_password }}"
+      role_attr_flags: replication
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+  - name: Add roled to barman.
+    become_user: postgres
+    community.postgresql.postgresql_membership:
+      groups:
+        - pg_read_all_settings
+        - pg_read_all_stats
+      target_role: "{{ barman_user }}"
+      state: present
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+  - name: GRANT EXECUTE PRIVILEGES ON FUNCTION pg_XXX TO barman
+    become_user: postgres
+    community.postgresql.postgresql_privs:
+      db: postgres
+      privs: EXECUTE
+      type: function
+      obj: pg_start_backup(text:boolean:boolean),pg_stop_backup(),pg_stop_backup(boolean:boolean),pg_switch_wal(),pg_create_restore_point(text)
+      schema: pg_catalog
+      roles: "{{ barman_user }}"
+    when: inventory_hostname in groups["pg_master"]
+    tags: [barman, barman_client]
+
+  # - debug:
+  #     msg: "{{ barman_ip }} {{ hostvars[groups['pg_master'][0]]['listen_ip'] }}"
+  
+   # Добавляем разрешения для подключения с хоста barman
+  - name: Add permission for barman
+    ansible.builtin.lineinfile:
+      path: "{{ postgresql_config_location }}/pg_hba.conf"
+      line: 'host    all   {{ barman_user }}    {{ barman_ip }}/32    scram-sha-256'
+    when: inventory_hostname in groups["postgres"]
+    tags: [barman, barman_client]
+
+  # # Добавляем разрешения для подключения с хоста barman
+  # - name: Add permission for barman
+  #   ansible.builtin.lineinfile:
+  #     path: "{{ postgresql_config_location }}/pg_hba.conf"
+  #     line: 'host    replication   {{ barman_user }}    {{ barman_ip }}/32    scram-sha-256'
+  #   when: inventory_hostname in groups["postgres"] and (not use_patroni)
+  #   tags: [barman, barman_client]
+
+  # - name: Add permission for barman
+  #   ansible.builtin.lineinfile:
+  #     path: "{{ postgresql_data_path }}/pg_hba.conf"
+  #     line: 'host    replication   {{ barman_user }}    {{ barman_ip }}/32    scram-sha-256'
+  #   when: inventory_hostname in groups["postgres"] and  use_patroni
+  #   tags: [barman, barman_client]
+
+  # Перезагружаем службу postgresql-server
+  - name: Restart postgresql-server on node1
+    ansible.builtin.service:
+      name: postgresql
+      state: reloaded
+    when: inventory_hostname in groups["pg_master"]  and (not use_patroni)
+    tags: [barman, barman_client]
+
+  # # Перезагружаем службу postgresql-server
+  # - name: Restart postgresql-server on node1
+  #   ansible.builtin.service:
+  #     name: patroni
+  #     state: reloaded
+  #   when: inventory_hostname in groups["postgres"]  and  use_patroni
+  #   tags: [barman, barman_client]

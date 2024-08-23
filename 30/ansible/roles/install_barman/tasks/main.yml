@@ -1,7 +1,27 @@
 ---
 # tasks file for install_barman
 # Установка необходимых пакетов для работы с postgres и пользователями
- 
+- name: When patroni block
+  when: use_patroni
+  block:
+  - name: Get patroni cluster leder
+    ansible.builtin.uri:
+      url: 'http://{{ keepalived_ip }}:8008/cluster/'
+      body_format: json
+      method: 'GET'
+      return_content: true
+      headers:
+        Content-Type: "application/json"
+    register: result
+
+  - name: Set postgresql_master_name
+    ansible.builtin.set_fact:
+      postgresql_master_name: "{{ result.json.members | selectattr ('role', 'eq', 'leader') | map (attribute='host' ) | first }}"
+
+  - name: Set leder postgresql_master_ip
+    ansible.builtin.set_fact:
+      postgresql_master_ip: "{{ hostvars[postgresql_master_name]['listen_ip'] }}"
+
   - name: Install base tools
     ansible.builtin.apt:
       name:
@@ -12,7 +32,7 @@
         - acl
       state: present
       update_cache: true
-    tags: [barman,install]
+    tags: [barman, install]
 
   #  Установка пакетов barman и postgresql-client на сервер barman
   - name: Install barman packages on barman
@@ -32,7 +52,7 @@
         - barman-cli
       state: present
       update_cache: true
-    when: inventory_hostname in groups["pg_master"]
+    when: inventory_hostname in groups["postgres"]
     tags: [barman, install, barman_client]
 
 #  Генерируем SSH-ключ для пользователя postgres на хосте node1
@@ -63,7 +83,7 @@
   - name: Fetch all public ssh keys {{ inventory_hostname }}
     ansible.builtin.shell: cat /var/lib/postgresql/.ssh/id_rsa.pub
     register: ssh_keys
-    when: inventory_hostname in groups["pg_master"]
+    when: inventory_hostname in groups["postgres"]
     tags: [barman, barman_client]
 
   #  Копируем ключ с barman на node1
@@ -73,7 +93,7 @@
       key: "{{ ssh_keys.stdout }}"
       comment: "{{ ansible_hostname }}"
       user: "{{ barman_user }}"
-    when: inventory_hostname in groups["pg_master"]
+    when: inventory_hostname in groups["postgres"]
     tags: [barman, barman_client]
 
   #  Забираем содержимое открытого ключа barman c хоста barman
@@ -93,65 +113,15 @@
     when: inventory_hostname in groups["backup"]
     tags: [barman, barman-server]
 
-  # CREATE USER barman SUPERUSER;
-  - name: Add PostgreSQL user barman
-    become_user: postgres
-    community.postgresql.postgresql_user:
-      user: "{{ barman_user }}"
-      password: "{{ barman_user_password }}"
-      role_attr_flags: replication
-    when: inventory_hostname in groups["pg_master"]
-    tags: [barman, barman_client]
+  - name: Barman | DB tasks when default postgres
+    ansible.builtin.include_tasks:
+      file: 'default_postgres.yml'
+    when: not use_patroni
 
-  - name: Add roled to barman.
-    become_user: postgres
-    community.postgresql.postgresql_membership:
-      groups:
-        - pg_read_all_settings
-        - pg_read_all_stats
-      target_role: "{{ barman_user }}"
-      state: present
-    when: inventory_hostname in groups["pg_master"]
-    tags: [barman, barman_client]
-
-  - name: GRANT EXECUTE PRIVILEGES ON FUNCTION pg_XXX TO barman
-    become_user: postgres
-    community.postgresql.postgresql_privs:
-      db: postgres
-      privs: EXECUTE
-      type: function
-      obj: pg_start_backup(text:boolean:boolean),pg_stop_backup(),pg_stop_backup(boolean:boolean),pg_switch_wal(),pg_create_restore_point(text)
-      schema: pg_catalog
-      roles: "{{ barman_user }}"
-    when: inventory_hostname in groups["pg_master"]
-    tags: [barman, barman_client]
-
-  - debug:
-      msg: "{{ barman_ip }} {{ hostvars[groups['pg_master'][0]]['listen_ip'] }}"
-   # Добавляем разрешения для подключения с хоста barman
-  - name: Add permission for barman
-    ansible.builtin.lineinfile:
-      path: "{{ postgresql_config_location }}/pg_hba.conf"
-      line: 'host    all   {{ barman_user }}    {{ barman_ip }}/32    scram-sha-256'
-    when: inventory_hostname in groups["postgres"]
-    tags: [barman, barman_client]
-
-  # Добавляем разрешения для подключения с хоста barman
-  - name: Add permission for barman
-    ansible.builtin.lineinfile:
-      path: "{{ postgresql_config_location }}/pg_hba.conf"
-      line: 'host    replication   {{ barman_user }}    {{ barman_ip }}/32    scram-sha-256'
-    when: inventory_hostname in groups["postgres"]
-    tags: [barman, barman_client]
-
-  # Перезагружаем службу postgresql-server
-  - name: Restart postgresql-server on node1
-    ansible.builtin.service:
-      name: postgresql
-      state: reloaded
-    when: inventory_hostname in groups["pg_master"]
-    tags: [barman, barman_client]
-
+  - name: Barman | DB tasks when default postgres
+    ansible.builtin.include_tasks:
+      file: 'patroni_patroni.yml'
+    when: use_patroni
 
   # Копируем файл .pgpass
   - name: Copy .pgpass
@@ -187,7 +157,17 @@
     tags: [barman, barman-server]
     register: result
 
-  - name: Barman switch-wal 
+  - name: Create logfile
+    ansible.builtin.file:
+      path: /var/log/barman/barman.log
+      owner: barman
+      group: barman
+      mode: '0640'
+      state: touch
+    when: 'inventory_hostname in groups["backup"]'
+    tags: [barman, barman-server]
+
+  - name: Barman switch-wal
     become_user: barman
     ansible.builtin.shell: barman switch-wal {{ postgresql_master_name }}
     when: 'inventory_hostname in groups["backup"]' # and result.changed'

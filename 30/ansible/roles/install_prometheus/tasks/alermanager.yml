@@ -76,7 +76,7 @@
     group: "{{ prometheus_user }}"
     mode: '0640'
   notify: Restart alertmanager
-  tags: [monitoring, alertmanager, install]
+  tags: [monitoring, alertmanager]
 
 - name: Alertmanager | Configure service | systemstl
   ansible.builtin.template:
@@ -86,7 +86,7 @@
     group: root
     mode: '0640'
   notify: Restart alertmanager
-  tags: [monitoring, alertmanager, install]
+  tags: [monitoring, alertmanager,install]
 
 - name: Alertmanager | Start Prometheus
   ansible.builtin.systemd_service:
@@ -94,4 +94,4 @@
     state: started
     enabled: true
     masked: false
-  tags: [monitoring, alertmanager, install]
+  tags: [monitoring, alertmanager]

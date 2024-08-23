@@ -1,20 +1,23 @@
 ---
 # tasks file for install_patroni
 
+- name: Set cidr fact
+  ansible.builtin.set_fact:
+    localnet: "{{ cidr | default([]) +
+              [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
+  loop: "{{ ansible_interfaces |
+              map('extract', ansible_facts, 'ipv4') |
+              select('defined') | list }}"
+  when: listen_ip | ipaddr((item.network ~ '/' ~ item.netmask)| ansible.utils.ipaddr('network/prefix'))
+  tags: patroni
+
 - name: Patroni | Disable postgresql service | systemd
   ansible.builtin.systemd_service:
     name: postgresql
     state: stopped
     enabled: false
   tags: patroni
-  register: result
-
-- name: Patroni | Delete initial postgresql cluster
-  ansible.builtin.file:
-    path: "{{ postgresql_data_path }}"
-    state: absent
-  tags: patroni
-  when: result.changed
+  register: postgres_status
 
 - name: Patroni | Add the softdog module
   ansible.builtin.lineinfile:
@@ -68,16 +71,6 @@
     update_cache: true
   tags: [install, patroni]
 
-- name: Set cidr fact
-  ansible.builtin.set_fact:
-    localnet: "{{ cidr | default([]) +
-              [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
-  loop: "{{ ansible_interfaces |
-              map('extract', ansible_facts, 'ipv4') |
-              select('defined') | list }}"
-  when: listen_ip | ipaddr((item.network ~ '/' ~ item.netmask)| ansible.utils.ipaddr('network/prefix'))
-  tags: patroni
-
 - name: Patroni | get settings from api | pgtun
   ansible.builtin.uri:
     url: https://pgtune.sainth.de/api/configuration
@@ -101,33 +94,59 @@
     path: "{{ patroni_config_dir }}/config.yml"
   register: file_path
 
-- name: Patroni | Delete patroni config
-  ansible.builtin.file:
-    path: "{{ patroni_config_dir }}"
-    state: absent
-  tags: patroni
-  when: 'not file_path.stat.exists'
-
-- name: Patroni | Delete patroni config
-  ansible.builtin.file:
-    path: "{{ patroni_config_dir }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "0751"
-  tags: patroni
-
-- name: Patroni | Set up config
-  ansible.builtin.template:
-    src: config.yml.j2
-    dest: /etc/patroni/config.yml
-    mode: '0644'
-  notify: Restart patroni
-  tags: patroni
-
-- name: Patroni | Start service | systemd
+- name: Patroni | Stop service | systemd
   ansible.builtin.systemd_service:
     name: patroni
-    state: started
+    state: stopped
     enabled: true
   tags: patroni
+  when: 'postgres_status.changed and (not file_path.stat.exists)'
+
+- name: Configure Patroni
+  block:
+  - name: Patroni | Delete initial postgresql cluster
+    ansible.builtin.file:
+      path: "{{ postgresql_data_path }}"
+      state: absent
+    tags: patroni
+    when: 'postgres_status.changed and (not file_path.stat.exists)'
+
+  - name: Patroni | Delete patroni config
+    ansible.builtin.file:
+      path: "{{ patroni_config_dir }}"
+      state: absent
+    tags: patroni
+    when: 'not file_path.stat.exists'
+
+  - name: Patroni | Create patroni config
+    ansible.builtin.file:
+      path: "{{ patroni_config_dir }}"
+      state: directory
+      owner: root
+      group: root
+      mode: "0751"
+    tags: patroni
+
+  - name: Patroni | Set up config
+    ansible.builtin.template:
+      src: config.yml.j2
+      dest: /etc/patroni/config.yml
+      mode: '0644'
+    notify: Restart patroni
+    tags: patroni
+
+  - name: Patroni | Start service | systemd
+    ansible.builtin.systemd_service:
+      name: patroni
+      state: started
+      enabled: true
+    tags: patroni
+
+
+- name: Include tasks "configure_haproxy"
+  ansible.builtin.include_tasks:
+    file: 'configure_haproxy.yml'
+
+- name: Include tasks "configure_keepalived"
+  ansible.builtin.include_tasks:
+    file: 'configure_keepalived.yml'

@@ -1,0 +1,80 @@
+ # code: language=ansible
+ # CREATE USER barman SUPERUSER;
+- name: add barman user 
+  when: inventory_hostname == postgresql_master_name
+  block: 
+  - name: Add PostgreSQL user barman
+    become_user: postgres
+    community.postgresql.postgresql_user:
+      user: "{{ barman_user }}"
+      password: "{{ barman_user_password }}"
+      role_attr_flags: replication
+    tags: [barman, barman_client]
+
+  - name: Add roled to barman.
+    become_user: postgres
+    community.postgresql.postgresql_membership:
+      groups:
+        - pg_read_all_settings
+        - pg_read_all_stats
+      target_role: "{{ barman_user }}"
+      state: present
+    tags: [barman, barman_client]
+
+  - name: GRANT EXECUTE PRIVILEGES ON FUNCTION pg_XXX TO barman
+    become_user: postgres
+    community.postgresql.postgresql_privs:
+      db: postgres
+      privs: EXECUTE
+      type: function
+      obj: pg_start_backup(text:boolean:boolean),pg_stop_backup(),pg_stop_backup(boolean:boolean),pg_switch_wal(),pg_create_restore_point(text)
+      schema: pg_catalog
+      roles: "{{ barman_user }}"
+    tags: [barman, barman_client]
+
+- name: Add pg_hba record
+  when: 'inventory_hostname in groups["backup"]'
+  block:
+  - name: Get patroni cluster pg_hba config
+    ansible.builtin.uri:
+      url: 'http://{{ keepalived_ip }}:8008/config/'
+      body_format: json
+      method: 'GET'
+      return_content: true
+      headers:
+        Content-Type: "application/json"
+    register: result
+
+  - name: Debug "Get patroni cluster pg_hba config"
+    ansible.builtin.debug:
+      msg: "{{ result }}"
+
+  # - name: Make new pg_hba record
+  #   ansible.builtin.set_fact:
+  #     updated_pg_hba: "host  all {{ barman_user }} {{ barman_ip }}/32    scram-sha-256'"
+
+  # - name: Add new pg_hba record to existing
+  #   ansible.builtin.set_fact:
+  #     updated_pg_hba: "{{ result.json.postgresql.pg_hba + [updated_pg_hba] }}"
+
+  # - name: Debug leder hostname
+  #   ansible.builtin.debug:
+  #     msg: "{{ updated_pg_hba }}"
+
+  # - name: PATCH pg_hba config
+  #   ansible.builtin.uri:
+  #     url: 'http://{{ keepalived_ip }}:8008/config/'
+  #     body_format: json
+  #     body:
+  #       postgresql:
+  #         pg_hba: "{{ updated_pg_hba }}"
+  #     method: 'PATCH'
+  #     return_content: true
+  #     headers:
+  #       Content-Type: "application/json"
+  #     status_code: 200
+  #   register: result
+
+  # - name: Pg_hba config
+  #   ansible.builtin.debug:
+  #     msg: "{{ result }}"

@@ -15,7 +15,7 @@
     src: dashboards.yaml.j2
     dest: /etc/grafana/provisioning/dashboards/dashboards.yaml
     owner: root
-    group: root
+    group: grafana
     mode: '0644'
   notify: Restart Grafana
   tags: [grafana]
@@ -25,7 +25,7 @@
     src: "{{ item }}.j2"
     dest: "/etc/grafana/provisioning/datasources/{{ item }}"
     owner: root
-    group: root
+    group: grafana
     mode: '0640'
   loop:
     - 'datasource_elasticsearch.yaml'

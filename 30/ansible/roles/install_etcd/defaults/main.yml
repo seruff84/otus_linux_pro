@@ -4,4 +4,4 @@ etcd_cluster_state: 'new'
 etcd_token: 'otus_token'
 etcd_proto: 'http'
 etc_peer_port: '2380'
-etcd_data_dir: var/lib/etcd/postgres
+etcd_data_dir: '/var/lib/etcd/postgres'

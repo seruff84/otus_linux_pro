@@ -2,4 +2,8 @@
 # vars file for install_patroni
 patroni_ips : "{% set IP_ARR=[] %}{% for host in groups['postgres'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
 etcd_ips : "{% set IP_ARR=[] %}{% for host in groups['etcd'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
-
+postgres_host: "{% set FQDN=[] %}{% for host in groups['postgres'] %}{% if FQDN.insert(loop.index,{'name': hostvars[host]['inventory_hostname'],'ip': hostvars[host]['listen_ip']}) %}{% endif %}{% endfor %}{{FQDN}}"
+net: "{{ '^' + (listen_ip | split('.'))[0:3] | join('\\.') + '\\..*$' }}"
+local_int: "{{ ansible_interfaces | map('regex_replace', '^', 'ansible_') | map('extract', vars) | selectattr('ipv4.address', 'match', net) | map(attribute='device') | first }}"
+nat_net: "{{ '^' + (nat_ip | split('.'))[0:3] | join('\\.') + '\\..*$' }}"
+nat_int: "{{ ansible_interfaces | map('regex_replace', '^', 'ansible_') | map('extract', vars) | selectattr('ipv4.address', 'match', net) | map(attribute='device') | first }}"

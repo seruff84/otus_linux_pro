@@ -2,9 +2,9 @@
 - name: Include tasks for prometheus
   ansible.builtin.include_tasks:
     file: 'prometheus.yml'
-  tags: [monitoring, prometheus, install]
+
 
 - name: Include tasks for alermanager
   ansible.builtin.include_tasks:
     file: 'alermanager.yml'
-  tags: [monitoring, alertmanager, install]
+

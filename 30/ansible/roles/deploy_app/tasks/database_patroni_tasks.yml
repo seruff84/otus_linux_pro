@@ -1,0 +1,87 @@
+  # code: language=ansible
+- name: Find Cluster leader
+  block:
+  - name: Get patroni cluster leder
+    ansible.builtin.uri:
+      url: 'http://{{ keepalived_ip }}:8008/cluster/'
+      body_format: json
+      method: GET
+      return_content: true
+      headers:
+        Content-Type: "application/json"
+    register: result
+
+  - name: Set leder hostname
+    ansible.builtin.set_fact:
+      leader_hostname: "{{result.json.members | selectattr ('role', 'eq', 'leader') | map (attribute='host' ) | first | default(groups['pg_master'] | first) }}"
+
+  rescue:
+  - name: Resсue | Sleep for 60 seconds and continue with play
+    ansible.builtin.wait_for:
+      timeout: 60
+    delegate_to: localhost
+
+  - name: Get patroni cluster leder
+    ansible.builtin.uri:
+      url: 'http://{{ keepalived_ip }}:8008/cluster/'
+      body_format: json
+      method: GET
+      return_content: true
+      headers:
+        Content-Type: "application/json"
+    register: result
+
+  - name: Set leder hostname
+    ansible.builtin.set_fact:
+      leader_hostname: "{{result.json.members | selectattr ('role', 'eq', 'leader') | map (attribute='host' ) | first | default(groups['pg_master'] | first) }}"
+
+- name: Postgres tasks | delegate to {{ leader_hostname }}
+  delegate_to: "{{ leader_hostname }}"
+  run_once: true
+  block:
+  - name: PostgreSQL | Create a new database with name {{ postgresql_db_name }}
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_db:
+      name: "{{ postgresql_db_name }}"
+    register: result
+
+  - name: PostgreSQL | Copy dump | app
+    ansible.builtin.copy:
+      src: "{{ postgresql_dump_file }}"
+      dest: "{{ postgresql_dump_tmp_path }}"
+      mode: '0640'
+      owner: postgres
+    when: 'postgresql_dump_file != "" and postgresql_restore_dump'
+
+  - name: PostgreSQL | Restore the database | db
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_db:
+      state: restore
+      name: "{{ postgresql_db_name }}"
+      target: "{{ postgresql_dump_tmp_path }}"
+    when: 'result.changed and postgresql_dump_file != "" and postgresql_restore_dump'
+
+  - name: PostgreSQL | Create db user | user
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_user:
+      name: '{{ postgresql_db_user }}'
+      password: '{{ postgresql_db_pass }}'
+
+  - name: PostgreSQL | GRANT ALL PRIVILEGES ON DATABASE {{ postgresql_db_name }} TO {{ postgresql_db_user }}
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_privs:
+      db: '{{ postgresql_db_name }}'
+      privs: ALL
+      objs: ALL_IN_SCHEMA
+      role: '{{ postgresql_db_user }}'
+
+  # - name: PostgreSQL | Update pg_hba for allow app servers | cluster
+  #   ansible.builtin.lineinfile:
+  #     dest: "{{ postgresql_data_dir }}/pg_hba.conf"
+  #     line: "host {{ postgresql_db_name }}  {{ postgresql_db_user }}  {{ item }}/32  scram-sha-256"
+  #   loop: "{{ app_ips }}"
+  #   notify: Reload patroni

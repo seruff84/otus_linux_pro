@@ -7,3 +7,6 @@ angie_ssl_dir: '/etc/angie/ssl'
 angie_ssl_certificate: '{{ angie_ssl_dir }}/site.crt'
 angie_ssl_certificate_key: '{{ angie_ssl_dir }}/site.key'
 angie_ssl_dhparam: '{{ angie_ssl_dir }}/dhparam'
+
+keepalived_password: 'hr0wg1chww8'
+keepalived_ip: '192.168.3.233'

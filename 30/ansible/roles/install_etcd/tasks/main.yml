@@ -1,17 +1,18 @@
 ---
 # tasks file for install-etcd
+
+
+- name: Include tasks "check_cluster_status"
+  ansible.builtin.include_tasks:
+    file: 'check_cluster_status.yml'
+
 - name: Etcd | install components | apt
   ansible.builtin.package:
     name:
       - etcd
     state: present
     update_cache: true
-  tags: [install, etcd]
-
-# - name: Set ETCD_INITIAL_CLUSTER_STATE if cluster exist
-#   ansible.builtin.set_fact:
-#     etcd_cluster_state: 'existing'
-#   tags: etcd
+  tags: etcd
 
 
 - name: Set up etcd config
@@ -21,10 +22,20 @@
     mode: '0644'
   notify: Restart etcd
   tags: etcd
+    
+
+- name: Include tasks "new_cluster"
+  ansible.builtin.include_tasks:
+    file: 'new_cluster.yml'
+  # when: 'quorum_status  | float > half_hosts | float'
+  when: 'quorum_status | int <= 1'
 
 
-- name: Start etcd
-  ansible.builtin.systemd_service:
-    name: etcd
-    state: started
-  tags: etcd
+- name: Include tasks "repalce_node"
+  ansible.builtin.include_tasks:
+    file: 'repalce_node.yml'
+  # when: 'quorum_status | float > 0 and quorum_status | float < half_hosts | float'
+  when: 'quorum_status | int  > 1  and quorum_status | int < hosts_count | int'
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  ansible.builtin.meta: flush_handlers

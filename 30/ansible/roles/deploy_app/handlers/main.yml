@@ -11,3 +11,10 @@
   ansible.builtin.service:
     name: postgresql
     state: reloaded
+
+
+- name: Reload patroni
+  systemd:
+    name: patroni
+    state: reloaded
+  delegate_to: "{{ leder_hostname }}"

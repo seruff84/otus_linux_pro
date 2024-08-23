@@ -1,0 +1,99 @@
+# code: language=ansible
+
+
+- name: Set etcd_cluster_state to existing when add or replace node
+  ansible.builtin.set_fact:
+    etcd_cluster_state: "existing"
+
+- name: Remove unreachable member
+  when: 'etcd_status_rc | int == 0'
+  run_once: true 
+  delegate_to: "{{existing_host}}"
+  block:
+
+  - name: Shell | etcdctl cluster-health
+    ansible.builtin.shell: |
+      etcdctl cluster-health
+    register:  cluster_health_result
+    ignore_errors: yes
+
+  - name: Debug "cluster_health_result"
+    debug: 
+      msg: "{{cluster_health_result}}"
+
+
+  - name: Finde unreachable status
+    ansible.builtin.set_fact:
+      unreachable_message: "{{ cluster_health_result.stdout_lines | select('search', 'unreachable') | list | first }}" 
+
+  - name: Debug "unreachable_message"
+    debug: 
+      msg: "{{unreachable_message}}"
+
+  - name: Get unreachable host address
+    set_fact:
+     # unreachable_ip: "{{ unreachable_message | regex_search('http://([0-9\\.]+):', '\\1') }}"
+      unreachable_ip: "{{ unreachable_message | regex_search('^member (.*) is', '\\1') }}"
+    when: unreachable_message is defined
+
+  - name: Debug unreachable_ip  
+    debug:
+      msg: "{{ unreachable_ip }} {{new_hosts}}"  
+    when: unreachable_ip is defined    
+
+  - name: Shell | etcdctl member remove
+    ansible.builtin.shell: |
+      etcdctl member remove {{ item }}
+    loop: "{{ unreachable_ip }}"
+    register:  result 
+    when: unreachable_ip is defined
+    delegate_to: "{{existing_host}}"
+    run_once: true
+
+  - name: Debug unreachable_ip  
+    debug:
+      msg: "{{ result }}"    
+
+
+- name: Add new member
+  tags: etcd
+  block:
+  - name: Stop etcd
+    ansible.builtin.systemd_service:
+      name: etcd
+      state: stopped
+    when: 'etcd_status_rc | int != 0'
+
+  - name: Set up etcd config
+    ansible.builtin.template:
+      src: etcd.j2
+      dest: /etc/default/etcd
+      mode: '0644'
+    notify: Restart etcd
+    tags: etcd
+    when: 'etcd_status_rc | int != 0'
+
+
+  - name: Set Fact new_host_ips
+    ansible.builtin.set_fact:
+      new_host_ips: "{{ new_hosts | map(attribute='ip') }}"
+
+  - name: removwe etcd data dir if exist
+    ansible.builtin.file:
+      path: "{{ etcd_data_dir }}"
+      state: absent
+    when: 'ansible_host in new_host_ips'
+    
+  - name: Shell | etcdctl member add
+    ansible.builtin.shell: |
+      etcdctl member add {{ item.name }} http://{{item.ip}}:2380
+    loop: "{{ new_hosts }}"
+    when: 'etcd_status_rc | int == 0'
+    delegate_to: "{{existing_host}}"
+    run_once: true
+  
+  - name: Start etcd
+    ansible.builtin.systemd_service:
+      name: etcd
+      state: started
+    when: 'etcd_status_rc | int != 0'

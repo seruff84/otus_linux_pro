@@ -1,0 +1,49 @@
+- name: Prepare app
+  hosts: app01
+  become: true
+  gather_facts: no
+  become_user: 'root'
+  vars:
+    postgres_host: "{% set FQDN=[] %}{% for host in groups['postgres'] %}{% if FQDN.insert(loop.index,{'name': hostvars[host]['inventory_hostname'],'ip': hostvars[host]['listen_ip']}) %}{% endif %}{% endfor %}{{FQDN}}"
+    keepalived_ip: 192.168.57.100
+    domain_list: ['https://192.168.3.233', 'https://192.168.3.231','https://192.168.3.232','https://app.local']
+
+  tasks:
+
+  # - name: get patroni cluster leder
+  #   ansible.builtin.uri:
+  #     url: 'http://{{ keepalived_ip }}:8008/config/'
+  #     body_format: json
+  #     method: GET
+  #     return_content: true
+  #     headers:
+  #       Content-Type: "application/json"
+  #   register: result
+
+  # # - name: set leder hostname
+  # #   ansible.builtin.set_fact:
+  # #     leder_hostname: "{{result.json.members | selectattr ('role', 'eq', 'leader') | map (attribute='host' ) | first }}"
+  # - name: set leder hostname
+  #   ansible.builtin.set_fact:
+  #     updated_pg_hba: "{{ result.json.postgresql.pg_hba +['host bloguser all 192.168.1.0/24 md5']}}"
+  # - name: Debug leder hostname
+  #   debug:
+  #     msg: "{{ updated_pg_hba }}"
+
+  # - name: get patroni cluster leder
+  #   ansible.builtin.uri:
+  #     url: 'http://{{ keepalived_ip }}:8008/config/'
+  #     body_format: json
+  #     body:
+  #       postgresql:
+  #         pg_hba: "{{ updated_pg_hba }}"
+  #     method: 'PATCH'
+  #     return_content: true
+  #     headers:
+  #       Content-Type: "application/json"
+  #     status_code: 200
+  #   register: result
+
+  - name: Debug leder hostname
+    debug:
+      msg: '{{domain_list | join(", ") }}'

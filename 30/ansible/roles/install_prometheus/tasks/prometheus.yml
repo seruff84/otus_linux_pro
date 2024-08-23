@@ -78,7 +78,7 @@
     group: "{{ prometheus_user }}"
     mode: '0640'
   notify: Restart Prometheus
-  tags: [monitoring, prometheus, install]
+  tags: [monitoring, prometheus]
 
 - name: Prometheus | Configure service | systemctl
   ansible.builtin.template:
@@ -96,4 +96,4 @@
     state: started
     enabled: true
     masked: false
-  tags: [monitoring, prometheus, install]
+  tags: [monitoring, prometheus]

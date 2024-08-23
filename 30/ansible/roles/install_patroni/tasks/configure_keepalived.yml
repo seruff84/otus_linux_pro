@@ -1,0 +1,24 @@
+# code: language=ansible
+
+- name: Keepalived | install components | apt
+  ansible.builtin.package:
+    name:
+      - keepalived
+    state: present
+    update_cache: true
+  tags: [install, keepalived]
+
+- name: Keepalived | Set up config
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: '0644'
+  notify: Restart keepalived
+  tags: keepalived
+
+- name: Keepalived | Start service | systemd
+  ansible.builtin.systemd_service:
+    name: keepalived
+    state: started
+    enabled: true
+  tags: keepalived

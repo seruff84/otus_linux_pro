@@ -12,14 +12,19 @@
 -A INPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 -A INPUT -p icmp -m icmp --icmp-type 0 -j ACCEPT
 -A INPUT -i lo -j ACCEPT
+-I INPUT -i {{local_int}} -p 112 -d 224.0.0.18 -j ACCEPT
 {% if ansible_fqdn in groups['front'] %}
 -A INPUT -p tcp -m tcp --dport 443 -m limit --limit 50/min --limit-burst 100 -j ACCEPT
 -A INPUT -p tcp -m tcp --dport 80 -m limit --limit 50/min --limit-burst 100 -j ACCEPT
 {% endif %}
 {% if ansible_fqdn in groups['postgres'] %}
 {% for ip in app_ips  %}
--A INPUT -i {{local_int}} -s {{ip}} -m state --state NEW  -p tcp -m tcp --dport {{postgresql_port}}  -j ACCEPT
+-A INPUT -i {{local_int}} -m state --state NEW  -p tcp -m tcp --dport {{postgresql_port}}  -j ACCEPT
+-A INPUT -i {{local_int}} -m state --state NEW  -p tcp -m tcp --dport  9187 -j ACCEPT
 {% endfor %}
+{% if postgres_cluster_ports %}
+-A INPUT -i {{local_int}} -m state --state NEW  -p tcp  --match multiport --dports {{postgres_cluster_ports | join(',')}} -j ACCEPT
+{% endif %}
 {% for ip in pg_ips  %}
 -A INPUT -i {{local_int}} -s {{ip}} -m state --state NEW  -p tcp -m tcp --dport {{postgresql_port}}  -j ACCEPT
 {% endfor %}
@@ -31,12 +36,16 @@
 {% endif %}
 {% if ansible_fqdn in groups['monitoring'] %}
 -A INPUT -i {{local_int}} -m state --state NEW  -p tcp -m tcp --dport {{grafana_port}}  -j ACCEPT
+-A INPUT -i {{local_int}} -m state --state NEW  -p tcp -m tcp --dport 9200 -j ACCEPT
+-A INPUT -i {{local_int}} -m state --state NEW  -p tcp -m tcp --dport 9300 -j ACCEPT
 {% endif %}
 {% for ip in monitor_ips  %}
-{% for port  in prometheus_ports %}
 -A INPUT -i {{local_int}} -s {{ip}} -m state --state NEW  -p tcp  --match multiport --dports {{prometheus_ports | join(',')}} -j ACCEPT
 {% endfor %}
-{% endfor %}
+{% if ansible_fqdn in groups['etcd'] %}
+-A INPUT -i {{local_int}} -m state --state NEW  -p tcp  --match multiport --dports 2379,2380 -j ACCEPT
+{% endif %}
+
 
 -A INPUT -i {{local_int}} -p tcp -m tcp --dport 22 -j ACCEPT
 -A INPUT -i {{nat_int}} -p tcp -m tcp --dport 22 -j ACCEPT

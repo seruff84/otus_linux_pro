@@ -1,10 +1,12 @@
 - name: Prepare app
-  hosts: db02
+  hosts: postgres,etcd
   become: true
+  gather_facts: no
   become_user: 'root'
   vars:
     etcd_proto: 'http'
     etc_peer_port: '2380'
+    ip: "{% for host in groups['all'] %}{{ hostvars[host]['listen_ip'] }} {{ hostvars[host]['inventory_hostname'] }}{% endfor %}"
   tasks:
     # - name: Set cidr fact
     #   ansible.builtin.set_fact:
@@ -14,7 +16,6 @@
     #               map('extract', ansible_facts, 'ipv4') |
     #               select('defined') | list }}"
     #   when: listen_ip | ipaddr((item.network ~ '/' ~ item.netmask)| ansible.utils.ipaddr('network/prefix'))
-
 
 
     # - name: Register file
@@ -59,9 +60,77 @@
 
     # - name: Set nginx_allwed_net fact
     #   ansible.builtin.set_fact:
-    #     nginx_allowed_net: "{{cidr | select('ipaddr', listen_ip) | list }}"              
-    - debug:
-        msg: "{{ ansible_interfaces | map('extract', ansible_facts, 'ipv4') }}"
+    #     nginx_allowed_net: "{{cidr | select('ipaddr', listen_ip) | list }}"
+
+
+
+###############
+
+    - name: Shell
+      ansible.builtin.shell: |
+        etcdctl member list
+      register: member_list
+      ignore_errors: yes
+    
+    # - ansible.builtin.set_fact:
+    #     result_rc : "{{ (member_list.rc) | int}}"
+
+    # - name: Сохранение имени хоста с ошибкой
+    #   set_fact:
+    #     failed_hosts: "{{ failed_hosts | default([]) + [inventory_hostname] }}"
+    #   when: "member_list.rc | int != 0"
+
+    # - name: debug etcdctl member list
+    #   debug:
+    #     msg: "{{result}}"
+
+    # - ansible.builtin.set_fact:
+    #     etcd_rc_list : []
+
+    # - name: name
+    #   when: 'result_rc | int == 0'
+    #   run_once: true 
+    #   block:
+
+    #   - ansible.builtin.set_fact:
+    #       etcd_rc_list : "{{ etcd_rc_list  + [hostvars[item].result_rc | int] }}"
+    #     with_items: "{{ groups['etcd'] }}"
+
+    #   - ansible.builtin.set_fact:
+    #       quorum_status: "{{etcd_rc_list | select('ne', 0) | list | length}}"
+      
+    #   - name: debug quorum_status  
+    #     debug:
+    #       msg: "{{ quorum_status }}"  
+
+    #   - name: Shell etcdctl cluster-health
+    #     ansible.builtin.shell: |
+    #       etcdctl cluster-health
+    #     register:  cluster_health_result
+    #     ignore_errors: yes
+
+
+    #   - name: Извлечь IP адрес недоступного узла
+    #     set_fact:
+    #       unreachable_message: "{{ cluster_health_result.stdout_lines | select('search', 'unreachable') | list | first }}" 
+
+
+    #   - name: Извлечь IP адрес недоступного узла
+    #     set_fact:
+    #       unreachable_ip: "{{ unreachable_message | regex_search('http://([0-9\\.]+):', '\\1') }}"
+
+
+      # - name: group count
+      #   set_fact:
+      #     unreachable_ip: "{{ ((groups['etcd'] | length ) | int / 2)  }}"
+
+##############
+    - name: unreachable_ip  
+      debug:
+        msg: "{{ groups['etcd'] | map('extract', hostvars, 'member_list') | selectattr('rc', 'ne', 0) etcdctl member list }}"      
+
+
+        #msg: "{{ hostvars['db02']['listen_ip'] }}"
         # msg: "{% set FQDN=[] %}{% for host in groups['etcd'] %}{% if FQDN.insert(loop.index,hostvars[host]['ansible_fqdn']+'='+etcd_proto+'://'+hostvars[host]['listen_ip']+':'+etc_peer_port) %}{% endif %}{% endfor %}{{FQDN}}"
         #var: hostvars['monitor']['listen_ip']
         # msg: "{% for service in services %}  {% for ip  in service.ips %} {{ip}}:{{service.port}} {% endfor %}{% endfor %}"

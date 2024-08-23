@@ -4,21 +4,21 @@ MACHINES = {
 :app01 => {
   :box_name => "ubuntu/jammy64",
   :vm_name => "app01",
-  :cpus => 2,
+  :cpus => 1,
   :memory => 1024,
   :ip => "192.168.57.14",
 },
 :app02 => {
   :box_name => "ubuntu/jammy64",
   :vm_name => "app02",
-  :cpus => 2,
+  :cpus => 1,
   :memory => 1024,
   :ip => "192.168.57.15",
 },
 :web01 => {
   :box_name => "ubuntu/jammy64",
   :vm_name => "web01",
-  :cpus => 2,
+  :cpus => 1,
   :memory => 1024,
   :ip => "192.168.57.16",
   :nat_ip => "192.168.3.231",
@@ -26,7 +26,7 @@ MACHINES = {
 :web02 => {
   :box_name => "ubuntu/jammy64",
   :vm_name => "web02",
-  :cpus => 2,
+  :cpus => 1,
   :memory => 1024,
   :ip => "192.168.57.17",
   :nat_ip => "192.168.3.232",
@@ -52,13 +52,13 @@ MACHINES = {
     :memory => 1024,
     :ip => "192.168.57.12",
   },
-  # :db03 => {
-  #   :box_name => "ubuntu/jammy64",
-  #   :vm_name => "db03",
-  #   :cpus => 2,
-  #   :memory => 1024,
-  #   :ip => "192.168.57.13",
-  # },
+  :spare => {
+    :box_name => "ubuntu/jammy64",
+    :vm_name => "spare",
+    :cpus => 2,
+    :memory => 2049,
+    :ip => "192.168.57.13",
+  },
 
 }
 
@@ -84,7 +84,7 @@ Vagrant.configure("2") do |config|
       end
 
       # Запуск ansible-playbook
-      if boxconfig[:vm_name] == "db02"
+      if boxconfig[:vm_name] == "spare"
        box.vm.provision "ansible" do |ansible|
         ansible.playbook = "ansible/provision.yml"
         ansible.inventory_path = "ansible/hosts"

@@ -2,15 +2,15 @@
 ---
 # tasks file for frontend
 
-- name: Angie | install server | apt
+- name: Frontend | install server | Angie
   ansible.builtin.include_tasks:
     file: 'install_angie.yml'
 
-- name: Angie | configure ssl | ssl
+- name: Frontend | configure ssl | Angie
   ansible.builtin.include_tasks:
     file: 'configure_ssl.yml'
 
-- name: Set cidr fact
+- name: Frontend | Set cidr fact
   ansible.builtin.set_fact:
     cidr: "{{ cidr | default([]) +
               [(item.network ~ '/' ~ item.netmask) | ansible.utils.ipaddr('network/prefix')] }}"
@@ -18,7 +18,7 @@
               map('extract', ansible_facts, 'ipv4') |
               select('defined') | list }}"
 
-- name: Set nginx_allwed_net fact
+- name: Frontend | Set nginx_allwed_net fact
   ansible.builtin.set_fact:
     nginx_allowed_net: "{{ subnet }}"
   when: listen_ip | ipaddr(subnet)
@@ -26,7 +26,7 @@
   loop_control:
     loop_var: subnet
 
-- name: Angie | Configure server | cfg
+- name: Frontend | Configure server | Angie
   ansible.builtin.template:
     src: default.conf.j2
     dest: "/etc/angie/http.d/default.conf"
@@ -35,3 +35,6 @@
     mode: '0600'
   notify: Restart Angie
 
+- name: Frontend | install keepalived
+  ansible.builtin.include_tasks:
+    file: 'configure_keepalived.yml'

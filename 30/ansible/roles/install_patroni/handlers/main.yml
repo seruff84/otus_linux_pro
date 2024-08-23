@@ -5,5 +5,16 @@
     name: patroni
     state: restarted
 
+- name: Restart haproxy
+  ansible.builtin.systemd_service:
+    name: haproxy
+    state: restarted
+
+- name: Restart keepalived
+  ansible.builtin.systemd_service:
+    name: keepalived
+    state: restarted
+
+
 - name: Reboot machine
   ansible.builtin.reboot:

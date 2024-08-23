@@ -20,7 +20,8 @@ gunicorn_exec_start: "{{ gunicorn_bin_file }} --workers {{ gunicorn_workers }} -
 
 postgresql_version: 14
 postgresql_cluster: "main"
-postgresql_conf_dir: /etc/postgresql/{{postgresql_version}}/{{postgresql_cluster}}
+postgresql_conf_dir: /etc/postgresql/{{ postgresql_version }}/{{ postgresql_cluster }}
+postgresql_data_dir: /var/lib/postgresql/{{ postgresql_version }}/{{ postgresql_cluster }}
 postgresql_db_name: "blog"
 postgresql_db_user: "blog_user"
 postgresql_db_pass: "8avsFjWo%hxmGwImYi"
@@ -29,3 +30,13 @@ postgresql_db_port: "5432"
 postgresql_dump_file: "blog.db"
 postgresql_dump_tmp_path: "/tmp/{{ postgresql_dump_file }}"
 postgresql_restore_dump: true
+keepalived_ip: '192.168.57.100'
+use_patroni: true
+patroni_postgres_password: 'Otus123'
+postgresql_cluster_port: 5000
+server_name: app.local
+domain_list:
+  - https://192.168.3.233
+  - https://192.168.3.231
+  - https://192.168.3.232
+  - https://app.local

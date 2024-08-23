@@ -1,0 +1,11 @@
+- name: Configure spare server
+  hosts: spare
+  become: true
+  roles:
+    - install_prometheus
+    - install_grafana
+    - install_opensearch
+    - frontend
+    - install_postgres
+    - install_filebeat
+  tags: [install]

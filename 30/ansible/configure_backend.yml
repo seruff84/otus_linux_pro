@@ -1,5 +1,5 @@
 - name: Configure backend server
-  hosts: pg_master,app
+  hosts: app
   become: true
   tasks:
 

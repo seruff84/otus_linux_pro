@@ -21,3 +21,6 @@ mem_size: "{{ ((ansible_memory_mb.real.total) / 1024) | round (0,'ceil') | int}}
 #pgtun_body: '{"dbVersion": "{{ postgresql_version }}","osType": "Linux","dbApplication": "WEB", "ram" : { "memory" : "{{ mem_size }}", "unit" : "GB"},"dataStorage": "SSD"}'
 
 pgtun_body: '{"dbVersion": "V13","cores" : {{ ansible_processor_cores }}, "osType": "Linux", "dbApplication": "WEB", "ram": { "memory" : {{ mem_size }}, "unit" : "GB"}, "dataStorage": "SSD"}'
+
+keepalived_password: 'hr0wg1chww8'
+keepalived_ip: '192.168.57.100'

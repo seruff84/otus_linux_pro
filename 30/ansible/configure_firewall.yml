@@ -7,6 +7,7 @@
     front_ips: "{% set IP_ARR=[] %}{% for host in groups['front'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
     monitor_ips: "{% set IP_ARR=[] %}{% for host in groups['monitoring'] %}{% if IP_ARR.insert(loop.index,hostvars[host]['listen_ip']) %}{% endif %}{% endfor %}{{IP_ARR}}"
     iptables_rule_file: "/etc/iptables/rules.v4"
+    postgres_cluster_ports: [8008,7000,5000,5001]
   tasks:
 
     - name: Set fact net

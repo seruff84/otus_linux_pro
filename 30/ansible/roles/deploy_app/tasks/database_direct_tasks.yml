@@ -1,0 +1,52 @@
+  # code: language=ansible
+- name: Postgres tasks
+  delegate_to: "{{groups["pg_master"] | first}}"
+  run_once: true
+  block:
+  - name: PostgreSQL | Create a new database with name {{ postgresql_db_name }} | db
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_db:
+      name: "{{ postgresql_db_name }}"
+    register: result
+
+  - name: PostgreSQL | Copy dump | app
+    ansible.builtin.copy:
+      src: "{{ postgresql_dump_file }}"
+      dest: "{{postgresql_dump_tmp_path}}"
+      mode: 0640
+      owner: postgres
+    when: 'postgresql_dump_file != "" and postgresql_restore_dump == true'
+
+  - name: PostgreSQL | Restore the database | db
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_db:
+      state: restore
+      name: "{{ postgresql_db_name }}"
+      target: "{{ postgresql_dump_tmp_path }}"
+    when: 'result.changed and postgresql_dump_file != "" and postgresql_restore_dump == true'
+  
+  - name: PostgreSQL | Create db user | user
+    become: true
+    become_user: postgres
+    postgresql_user:
+      name: '{{ postgresql_db_user}}'
+      password: '{{ postgresql_db_pass }}'
+
+  - name: PostgreSQL | GRANT ALL PRIVILEGES ON DATABASE {{ postgresql_db_name }} TO {{ postgresql_db_user}} | user
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_privs:
+      db: '{{ postgresql_db_name }}'
+      privs: ALL
+      objs: ALL_IN_SCHEMA
+      role: '{{ postgresql_db_user }}'
+
+  - name: PostgreSQL | Update pg_hba for allow app servers | cluster
+    lineinfile:
+      dest: "{{ postgresql_conf_dir }}/pg_hba.conf"
+      line: "host {{ postgresql_db_name }}  {{ postgresql_db_user }}  {{ item }}/32  scram-sha-256"
+    loop: "{{ app_ips }}" 
+    notify: Reload postgresql
+

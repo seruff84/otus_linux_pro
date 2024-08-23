@@ -2,9 +2,14 @@
 # tasks file for deploy_app
 - name: PostgreSQL | includ db tasks
   ansible.builtin.include_tasks:
-    file: 'database_tasks.yml'
-    
+    file: 'database_direct_tasks.yml'
+  when: not use_patroni
+
+- name: PostgreSQL | includ db tasks
+  ansible.builtin.include_tasks:
+    file: 'database_patroni_tasks.yml'
+  when: use_patroni
+  
 - name: APP | includ app-server tasks
   ansible.builtin.include_tasks:
     file: 'app-server_tasks.yml'
-

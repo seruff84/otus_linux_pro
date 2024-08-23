@@ -1,4 +1,13 @@
    # code: language=ansible
+- name: Set variable of patroni
+  when: use_patroni
+  block:
+    - name: set postgresql_db_address
+      ansible.builtin.set_fact:
+        postgresql_db_address: "{{ keepalived_ip }}"
+        postgresql_db_port: "{{ postgresql_cluster_port }}"
+
+
 - name: App | Deploy app
   when: 'inventory_hostname in groups["app"]'
   block:

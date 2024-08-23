@@ -15,14 +15,14 @@ prometheus_lib_dir: '/var/lib/prometheus'
 prometheus_exporter_pg_port: '9187'
 prometheus_exporter_node_port: '9100'
 prometheus_exporter_angie_port: '80'
-
+prometheus_exporter_patroni_port: '8008'
 
 prometheus_alertmanager_version: '0.27.0'
 prometheus_alertmanager_distr: 'alertmanager-{{ prometheus_alertmanager_version }}.linux-amd64'
 prometheus_alertmanager_arch: '{{ prometheus_alertmanager_distr }}.tar.gz'
 prometheus_alertmanager_url: 'https://github.com/prometheus/alertmanager/releases/download/v{{ prometheus_alertmanager_version }}/{{ prometheus_alertmanager_arch }}'
 prometheus_alertmanager_tmp_dir: "{{ tmp_dir }}/{{ prometheus_alertmanager_distr }}"
-
+prometheus_postgresql_use_patroni: true
 
 telegram_token: ''
 telegram_chat_id: ''

@@ -1,16 +1,21 @@
-# - name: Configure ETCD servers
-#   hosts: etcd
-#   become: true
-#   roles:
-#     - install_etcd
+- name: Configure ETCD servers
+  hosts: etcd
+  become: true
+  roles:
+    - install_etcd
 
 - name: Configure PostgreSQL servers
   hosts: postgres
   become: true
-  collections:
-    - prometheus.prometheus
+  # collections:
+  #   - ansible_collections.prometheus.prometheus
+
   roles:
     - install_postgres
-    - postgres_replication
-    - prometheus.prometheus.postgres_exporter
-    # - install_patroni
+    # - postgres_replication
+    - install_patroni
+    - role: prometheus.prometheus.postgres_exporter
+      vars:
+        postgres_exporter_password: 'Otus123'
+        postgres_exporter_username: 'postgres'
+        postgres_exporter_name: 'postgresql://postgres@127.0.0.1/postgres?sslmode=disable'

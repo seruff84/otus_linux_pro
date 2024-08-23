@@ -1,0 +1,101 @@
+# code: language=ansible
+- name: Exec "etcdctl member list"
+  ansible.builtin.shell: |
+    etcdctl member list
+  register: etcd_status_result
+  ignore_errors: yes
+
+- name: Finde total host count in etcd cluster
+  ansible.builtin.set_fact:
+    hosts_count: "{{ ((groups['etcd'] | length ) | int) }}"
+
+- name : Set "etcd_status_rc"
+  ansible.builtin.set_fact:
+    etcd_status_rc : "{{ (etcd_status_result.rc) | int}}"
+
+# - name : Set "member_count"
+#   ansible.builtin.set_fact:
+#     member_count: "{{ etcd_status_result.stdout_lines | list | length }}"
+
+- name: Debug "etcd_status_rc"
+  debug: 
+    msg: "{{ etcd_status_rc }}"
+
+
+- name: set empty new_hosts_local value
+  ansible.builtin.set_fact:
+    new_hosts_local: []
+
+
+- name: Finde new host localy
+  ansible.builtin.set_fact:
+    new_hosts_local: "{{ new_hosts_local | default([]) + [{'name':inventory_hostname,'ip':listen_ip}] }}"
+  when: "etcd_status_rc | int != 0"
+
+- name: Debug new_hosts_local
+  debug: 
+    msg: "{{ new_hosts_local }}"
+
+
+
+- name: set empty existing_hosts_local value
+  ansible.builtin.set_fact:
+    existing_hosts_local: []
+
+- name: Finde existing host localy
+  ansible.builtin.set_fact:
+    existing_hosts_local: "{{ new_hosts_local | default([]) + [inventory_hostname] }}"
+  when: "etcd_status_rc | int == 0"
+
+- name: Debug existing_hosts_local
+  debug: 
+    msg: "{{ existing_hosts_local }}"
+
+
+
+- name: Collect info about new hosts
+  ansible.builtin.set_fact:
+    new_hosts: >-
+      {{ 
+        groups['etcd'] 
+        | map('extract', hostvars, 'new_hosts_local') 
+        | default([]) 
+        | select('defined') 
+        | sum(start=[]) 
+      }}
+- name: Collect info about existing host
+  ansible.builtin.set_fact:
+    existing_host: >-
+      {{
+        (groups['etcd'] 
+        | map('extract', hostvars, 'existing_hosts_local') 
+        | select('defined') 
+        | sum(start=[])) 
+        | default([]) 
+        | first | default(None)
+      }}
+
+- name: Debug etcd_status_rc
+  debug: 
+    msg: "{{ etcd_status_rc }}"
+
+- name: Debug hosts
+  debug: 
+    msg: "new_hosts: {{ new_hosts }}, existing_host: {{ existing_host }}"
+
+
+- name: Set empty list "etcd_rc_list"
+  ansible.builtin.set_fact:
+    etcd_rc_list : []
+
+- name: Fill "etcd_rc_list" list
+  ansible.builtin.set_fact:
+    etcd_rc_list : "{{ etcd_rc_list  + [hostvars[item].etcd_status_rc | int] }}"
+  with_items: "{{ groups['etcd'] }}"
+
+- name: Set "quorum_status" veriable 
+  ansible.builtin.set_fact:
+    quorum_status: "{{etcd_rc_list | select('eq', 0) | list | length}}"
+
+
+

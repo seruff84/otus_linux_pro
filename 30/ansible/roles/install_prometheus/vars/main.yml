@@ -8,6 +8,7 @@ all_ips: "{{pg_ips + app_ips + web_ips }}"
 
 services:
   - {'name': 'postgresql', 'ips': '{{pg_ips | list}}', 'port': '{{prometheus_exporter_pg_port}}'}
+  - {'name': 'patroni', 'ips': '{{pg_ips | list}}', 'port': '{{prometheus_exporter_patroni_port}}'}
   - {'name': 'node', 'ips': '{{all_ips | list}}', 'port': '{{prometheus_exporter_node_port}}'}
   - {'name': 'angie', 'ips': '{{web_ips | list}}', 'port': '{{prometheus_exporter_angie_port}}'}
 

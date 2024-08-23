@@ -1,0 +1,36 @@
+global_defs {                                                                                            │global_defs {
+   router_id ocp_vrrp                                                                                    │   router_id ocp_vrrp
+   enable_script_security                                                                                │   enable_script_security
+   script_user root                                                                                      │   script_user root
+}                                                                                                        │}
+                                                                                                         │
+vrrp_script haproxy_check {                                                                              │vrrp_script haproxy_check {
+   script "killall -0 haproxy"                                                                           │   script "killall -0 haproxy"
+   interval 5 # check every 5 seconds                                                                    │   interval 5 # check every 5 seconds
+   weight 2 # add 2 points of prio if OK                                                                 │   weight 2 # add 2 points of prio if OK
+}                                                                                                        │}
+                                                                                                         │
+vrrp_instance VI_1 {                                                                                     │vrrp_instance VI_1 {
+   interface {{ local_int }}                                                                                      │   interface enp0s8
+   virtual_router_id 11                                                                                  │   virtual_router_id 11
+   priority  101 # 101 on master, 100 on backup                                                          │   priority  101 # 101 on master, 100 on backup
+   advert_int 10                                                                                         │   advert_int 10
+   {% if inventory_hostname in groups["pg_master"]  %}
+    priority  101
+    state  MASTER
+   {% else %}
+    priority  100
+    state  BACKUP
+   {% endif %}
+                                                                                       │   state  BACKUP
+   virtual_ipaddress {                                                                                   │   virtual_ipaddress {
+       {{ keepalived_ip }}                                                                                  │       192.168.57.100
+   }                                                                                                     │  }
+   track_script {                                                                                        │   track_script {
+       haproxy_check                                                                                     │       haproxy_check
+   }                                                                                                     │   }
+   authentication {                                                                                      │   authentication {
+      auth_type PASS                                                                                     │      auth_type PASS
+      auth_pass {{ keepalived_password }}                                                                             │      auth_pass ehr0wg1chww8
+   }                                                                                                     │   }
+}                                                                                                        │}
